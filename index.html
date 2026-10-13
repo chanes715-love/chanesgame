@@ -40,8 +40,8 @@
         }
     </script>
     <style>
-        /* 強制全站所有元素皆嚴格使用思源宋體 */
-        * { 
+        /* 強制全站所有元素皆嚴格使用思源宋體，但排除 <i> 圖示 */
+        *:not(i) { 
             font-family: 'Noto Serif TC', serif !important;
         }
 
@@ -110,8 +110,8 @@
             <div class="flex justify-between h-20">
                 <!-- Logo -->
                 <div class="flex items-center cursor-pointer group" onclick="navigate('works')">
-                    <!-- 改為電腦與程式碼的圖示 -->
-                    <i class="fa-solid fa-laptop-code text-lib-wood-dark text-3xl mr-3 group-hover:scale-110 transition"></i>
+                    <!-- 改為純電腦圖示 -->
+                    <i class="fa-solid fa-desktop text-lib-wood-dark text-3xl mr-3 group-hover:scale-110 transition"></i>
                     <span class="font-serif-title font-black text-2xl tracking-wide text-gray-800" id="nav-site-title">資訊應用競賽</span>
                     <span class="text-sm ml-3 hidden sm:inline border-l-2 border-gray-300 pl-3 text-gray-500 font-bold" id="nav-site-subtitle"></span>
                 </div>
@@ -147,7 +147,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-          const firebaseConfig = {
+         const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
