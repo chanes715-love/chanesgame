@@ -30,18 +30,23 @@
                         'lib-text': '#0F172A'      /* 深藍文字 (Slate 900) */
                     },
                     fontFamily: {
+                        'sans': ['"Noto Serif TC"', 'serif'],
                         'serif': ['"Noto Serif TC"', 'serif'],
-                        'sans': ['"Noto Serif TC"', 'serif'], /* 將預設也強制改為明體 */
+                        'mono': ['"Noto Serif TC"', 'serif'] /* 強制連等寬字體(如匯入框)也使用思源宋體 */
                     }
                 }
             }
         }
     </script>
     <style>
+        /* 強制所有基礎文字、輸入框、按鈕與下拉選單皆使用思源宋體 */
+        body, input, button, textarea, select, option { 
+            font-family: '"Noto Serif TC"', serif;
+        }
+
         body { 
             background-color: #F0F9FF; 
             color: #0F172A; 
-            font-family: '"Noto Serif TC"', serif;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -141,7 +146,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-      const firebaseConfig = {
+          const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
@@ -180,7 +185,7 @@
             authUser: null, 
             data: {
                 news: [], categories: [], works: [], users: [],
-                settings: { title: '櫻花盃', subtitle: '國小資訊應用競賽' }
+                settings: { title: '長安', subtitle: '國小資訊應用競賽' }
             },
             unsubscribes: []
         };
