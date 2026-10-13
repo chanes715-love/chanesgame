@@ -6,10 +6,10 @@
     <title>櫻花盃 國小資訊應用競賽</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Noto Serif TC (標題) & Noto Sans TC (內文) -->
+    <!-- Google Fonts: Noto Serif TC (全站改用明體) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -31,7 +31,7 @@
                     },
                     fontFamily: {
                         'serif': ['"Noto Serif TC"', 'serif'],
-                        'sans': ['"Noto Sans TC"', 'sans-serif'],
+                        'sans': ['"Noto Serif TC"', 'serif'], /* 將預設也強制改為明體 */
                     }
                 }
             }
@@ -41,7 +41,7 @@
         body { 
             background-color: #F0F9FF; 
             color: #0F172A; 
-            font-family: '"Noto Sans TC"', sans-serif;
+            font-family: '"Noto Serif TC"', serif;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -141,7 +141,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-          const firebaseConfig = {
+      const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
