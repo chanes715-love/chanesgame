@@ -163,7 +163,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-          const firebaseConfig = {
+         const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
@@ -194,6 +194,16 @@
             let hash = 0;
             for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
             return themeColors[Math.abs(hash) % themeColors.length];
+        };
+
+        // 將雲端硬碟或圖片連結轉換為縮圖網址
+        const getThumbnailUrl = (url) => {
+            if (!url) return 'https://placehold.co/400x300/E0F2FE/0284C7?text=無預覽圖';
+            const match = url.match(/(?:\/d\/|id=|folders\/)([a-zA-Z0-9_-]{15,})/);
+            if (match && match[1]) {
+                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+            }
+            return url;
         };
 
         const state = {
@@ -400,6 +410,7 @@
             const worksHtml = displayWorks.map(w => {
                 const displayTitle = `${escapeHtml(getCatName(w.categoryId))} - ${escapeHtml(getStudentName(w.studentId))}`;
                 const color = getColorTheme(w.categoryId); 
+                const thumbUrl = escapeHtml(getThumbnailUrl(w.driveLink));
 
                 let awardHtml = '<span class="text-gray-600 font-bold">作品參展</span>';
                 if (w.award === '優等') {
@@ -411,13 +422,19 @@
                 return `
                 <div class="bg-white rounded-t-lg rounded-b-sm shadow-md border-t-[8px] ${color.border} flex flex-col justify-between transform transition hover:-translate-y-1 hover:shadow-lg h-full">
                     <div class="p-5 flex-grow">
-                        <div class="mb-4 flex justify-between items-start">
+                        <div class="mb-3 flex justify-between items-start">
                             <span class="${color.bg} text-white px-3 py-1 text-xs font-bold rounded-sm inline-block shadow-sm tracking-widest">${escapeHtml(getCatName(w.categoryId))}</span>
                             <span class="text-gray-400 text-xs font-bold"><i class="fa-regular fa-eye"></i> ${w.views || 0}</span>
                         </div>
-                        <h3 class="text-2xl font-bold text-gray-800 font-serif-title mb-4 leading-snug cursor-pointer hover:opacity-70" onclick="viewWorkDetail('${w.id}')">${displayTitle}</h3>
+                        <a href="${escapeHtml(w.driveLink)}" target="_blank" class="block overflow-hidden rounded border border-gray-200 mb-3 bg-gray-50 h-40 relative group" title="點擊查看原圖">
+                            <img src="${thumbUrl}" alt="${displayTitle}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.onerror=null; this.src='https://placehold.co/400x300/E0F2FE/0284C7?text=點擊查看作品';">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
+                                <span class="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition font-bold"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>查看原圖</span>
+                            </div>
+                        </a>
+                        <h3 class="text-xl font-bold text-gray-800 font-serif-title mb-3 leading-snug cursor-pointer hover:opacity-70" onclick="viewWorkDetail('${w.id}')">${displayTitle}</h3>
                         
-                        <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded p-3 text-sm mb-4">
+                        <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded p-3 text-sm mb-2">
                             <span class="font-bold text-gray-500 text-xs mb-1.5 block">榮譽紀錄：</span>
                             ${awardHtml}
                         </div>
@@ -878,17 +895,23 @@
                  const catName = state.data.categories.find(c=>c.id===w.categoryId)?.name || '未知';
                  const displayTitle = `${escapeHtml(catName)} - ${studentDisplay}`;
                  const color = getColorTheme(w.categoryId);
+                 const thumbUrl = escapeHtml(getThumbnailUrl(w.driveLink));
                  
                  return `
                     <div class="bg-white p-5 mb-5 rounded shadow-sm border-l-4 ${color.border} relative group">
-                        <div class="pl-2">
-                            <span class="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 mb-2 inline-block">${escapeHtml(catName)}</span>
-                            <h4 class="font-bold text-xl mt-1 text-gray-800 font-serif-title">${displayTitle}</h4>
-                            <div class="mt-4 flex flex-col sm:flex-row justify-between sm:items-center space-y-3 sm:space-y-0">
-                                <a href="${escapeHtml(w.driveLink)}" target="_blank" class="lib-btn lib-btn-outline px-4 py-1.5 text-sm inline-flex items-center w-max"><i class="fa-brands fa-google-drive mr-2"></i> 前往雲端</a>
-                                <div class="flex items-center space-x-4 border-t sm:border-none border-gray-100 pt-3 sm:pt-0">
-                                    <span class="text-sm font-bold text-gray-400"><i class="fa-regular fa-eye mr-1"></i> ${w.views || 0} 次觀看</span>
-                                    <button onclick="deleteDocHandler('works', '${w.id}')" class="text-gray-400 hover:text-red-500 transition p-2" title="刪除作品"><i class="fa-solid fa-trash text-lg"></i></button>
+                        <div class="pl-2 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="block overflow-hidden rounded border border-gray-200 bg-gray-50 w-full sm:w-36 h-24 flex-shrink-0 relative group/img" title="點擊查看原圖">
+                                <img src="${thumbUrl}" alt="${displayTitle}" class="w-full h-full object-cover group-hover/img:scale-105 transition duration-300" onerror="this.onerror=null; this.src='https://placehold.co/400x300/E0F2FE/0284C7?text=點擊查看作品';">
+                            </a>
+                            <div class="flex-grow w-full">
+                                <span class="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 mb-1 inline-block">${escapeHtml(catName)}</span>
+                                <h4 class="font-bold text-xl mt-0.5 text-gray-800 font-serif-title">${displayTitle}</h4>
+                                <div class="mt-3 flex flex-col sm:flex-row justify-between sm:items-center space-y-2 sm:space-y-0">
+                                    <a href="${escapeHtml(w.driveLink)}" target="_blank" class="lib-btn lib-btn-outline px-3 py-1 text-xs inline-flex items-center w-max"><i class="fa-solid fa-image mr-1.5"></i> 點擊看原圖</a>
+                                    <div class="flex items-center space-x-4 border-t sm:border-none border-gray-100 pt-2 sm:pt-0">
+                                        <span class="text-sm font-bold text-gray-400"><i class="fa-regular fa-eye mr-1"></i> ${w.views || 0} 次觀看</span>
+                                        <button onclick="deleteDocHandler('works', '${w.id}')" class="text-gray-400 hover:text-red-500 transition p-1" title="刪除作品"><i class="fa-solid fa-trash text-lg"></i></button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -958,11 +981,20 @@
              const judgeWorksHtml = worksToJudge.map(w => {
                  const myScore = (w.scores && w.scores[myId] !== undefined) ? w.scores[myId] : '';
                  const displayTitle = `${escapeHtml(getCatName(w.categoryId))} - ${escapeHtml(getStudentName(w.studentId))}`;
+                 const thumbUrl = escapeHtml(getThumbnailUrl(w.driveLink));
                  return `
                     <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                         <td class="p-4">
                             <span class="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 block w-max mb-2">${escapeHtml(getCatName(w.categoryId))}</span>
-                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="font-bold text-lg text-lib-wood hover:text-lib-blue transition font-serif-title">${displayTitle} <i class="fa-solid fa-arrow-up-right-from-square text-sm ml-1 text-gray-400"></i></a>
+                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="group block w-max" title="點擊縮圖開啟原圖">
+                                <div class="overflow-hidden rounded border border-gray-200 shadow-sm mb-2 bg-gray-50 w-48 h-32 flex items-center justify-center relative">
+                                    <img src="${thumbUrl}" alt="${displayTitle}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.onerror=null; this.src='https://placehold.co/400x300/E0F2FE/0284C7?text=點擊查看作品';">
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
+                                        <span class="bg-black/75 text-white text-xs px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition font-bold"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>看原圖</span>
+                                    </div>
+                                </div>
+                                <span class="font-bold text-base text-lib-wood group-hover:text-lib-blue transition font-serif-title flex items-center">${displayTitle} <i class="fa-solid fa-arrow-up-right-from-square text-xs ml-1.5 text-gray-400"></i></span>
+                            </a>
                         </td>
                         <td class="p-4 font-bold text-gray-700"><i class="fa-solid fa-user text-gray-400 mr-2"></i>${escapeHtml(getStudentName(w.studentId))}</td>
                         <td class="p-4">
@@ -1450,6 +1482,7 @@
             const studentName = stuObj ? (stuObj.className ? `${stuObj.className} ${stuObj.name}` : stuObj.name) : '未知同學';
             const displayTitle = `${escapeHtml(catName)} - ${escapeHtml(studentName)}`;
             const color = getColorTheme(work.categoryId);
+            const thumbUrl = escapeHtml(getThumbnailUrl(work.driveLink));
 
             const modalContainer = document.getElementById('modal-container-style');
             modalContainer.className = `bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl border-t-[10px] ${color.border}`;
@@ -1466,15 +1499,21 @@
                 <div class="text-center mb-6 border-b border-gray-100 pb-6">
                     ${awardHtml}
                     <h2 class="text-3xl font-black text-gray-800 mb-5 font-serif-title">${displayTitle}</h2>
-                    <div class="inline-flex items-center space-x-4 bg-gray-50 px-5 py-2 rounded-full border border-gray-200">
+                    <div class="inline-flex items-center space-x-4 bg-gray-50 px-5 py-2 rounded-full border border-gray-200 mb-6">
                         <span class="text-gray-600 font-bold"><i class="fa-solid fa-user-pen text-gray-400 mr-1"></i> ${escapeHtml(studentName)}</span>
                         <span class="text-gray-300 font-bold text-xl">|</span>
                         <span class="text-gray-600 font-bold"><i class="fa-regular fa-eye text-gray-400 mr-1"></i> ${(work.views || 0) + 1} 次觀看</span>
                     </div>
+                    <a href="${escapeHtml(work.driveLink)}" target="_blank" class="block max-w-md mx-auto overflow-hidden rounded-lg border-2 border-gray-200 shadow-md bg-gray-50 relative group" title="點擊開啟原圖">
+                        <img src="${thumbUrl}" alt="${displayTitle}" class="w-full max-h-72 object-contain mx-auto group-hover:scale-105 transition duration-300" onerror="this.onerror=null; this.src='https://placehold.co/600x400/E0F2FE/0284C7?text=點擊查看完整作品';">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
+                            <span class="bg-black/75 text-white text-sm px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition font-bold"><i class="fa-solid fa-magnifying-glass-plus mr-1.5"></i>點擊查看原圖</span>
+                        </div>
+                    </a>
                 </div>
                 <div class="text-center mt-6">
                     <a href="${escapeHtml(work.driveLink)}" target="_blank" class="lib-btn ${color.bg} px-10 py-3.5 shadow-md text-lg inline-flex tracking-wider text-white">
-                        <i class="fa-brands fa-google-drive mr-2 text-xl"></i>開啟完整作品檔案
+                        <i class="fa-brands fa-google-drive mr-2 text-xl"></i>開啟完整作品原圖
                     </a>
                 </div>
             `;
