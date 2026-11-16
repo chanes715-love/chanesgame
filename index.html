@@ -6,7 +6,7 @@
     <title>長安國小資訊應用競賽</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Noto Serif TC (全站改用明體) -->
+    <!-- Google Fonts: Noto Serif TC (全站改用思源宋體) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -28,19 +28,19 @@
                         'lib-purple': '#6366F1',   /* 靛青 (Indigo 500) */
                         'lib-pink': '#8B5CF6',     /* 紫色 (Violet 500) */
                         'lib-text': '#0F172A',     /* 深藍文字 (Slate 900) */
-                        'lib-blue': '#3B82F6'      /* 修復帳號管理頁籤的背景色 */
+                        'lib-blue': '#3B82F6'      /* 帳號管理頁籤背景色 */
                     },
                     fontFamily: {
                         'sans': ['"Noto Serif TC"', 'serif'],
                         'serif': ['"Noto Serif TC"', 'serif'],
-                        'mono': ['"Noto Serif TC"', 'serif'] /* 強制連等寬字體(如匯入框)也使用思源宋體 */
+                        'mono': ['"Noto Serif TC"', 'serif']
                     }
                 }
             }
         }
     </script>
     <style>
-        /* 強制全站所有元素皆嚴格使用思源宋體，但排除 <i> 圖示 */
+        /* 強制全站所有元素皆嚴格使用思源宋體，但排除 <i> 圖示以免變成方塊 */
         *:not(i) { 
             font-family: 'Noto Serif TC', serif !important;
         }
@@ -87,6 +87,9 @@
         .lib-btn-wood { background-color: #0284C7; color: white; }
         .lib-btn-green { background-color: #06B6D4; color: white; }
         .lib-btn-blue { background-color: #3B82F6; color: white; }
+        .lib-btn-orange { background-color: #0EA5E9; color: white; }
+        .lib-btn-purple { background-color: #6366F1; color: white; }
+        .lib-btn-pink { background-color: #8B5CF6; color: white; }
         .lib-btn-red { background-color: #EF4444; color: white; }
         .lib-btn-outline { border: 1px solid #CBD5E1; background: white; color: #475569; }
         .lib-btn-outline:hover { background: #F8FAFC; }
@@ -98,19 +101,19 @@
         .toast-leave-active { transform: translateY(100%); opacity: 0; transition: all 0.3s ease-in; }
         
         /* 富文本內容修飾 */
-        .rich-text-content p { margin-bottom: 0.5rem; line-height: 1.6; }
+        .rich-text-content p { margin-bottom: 0.4rem; line-height: 1.5; }
         .rich-text-content a { color: #14B8A6; text-decoration: underline; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- Navigation (Tech style bottom border) -->
+    <!-- Navigation -->
     <nav class="bg-white border-b-[8px] border-lib-wood shadow-sm sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-20">
                 <!-- Logo -->
                 <div class="flex items-center cursor-pointer group" onclick="navigate('works')">
-                    <!-- 改為純電腦圖示 -->
+                    <!-- 電腦圖示 -->
                     <i class="fa-solid fa-desktop text-lib-wood-dark text-3xl mr-3 group-hover:scale-110 transition"></i>
                     <span class="font-serif-title font-black text-2xl tracking-wide text-gray-800" id="nav-site-title">資訊應用競賽</span>
                     <span class="text-sm ml-3 hidden sm:inline border-l-2 border-gray-300 pl-3 text-gray-500 font-bold" id="nav-site-subtitle"></span>
@@ -131,6 +134,19 @@
         </div>
     </main>
 
+    <!-- Global Delete Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-gray-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-lg w-full max-w-sm p-6 relative shadow-2xl border-t-8 border-red-500 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+            <h3 class="font-black text-xl mb-2 text-gray-800 font-serif-title">確定要刪除嗎？</h3>
+            <p class="text-sm text-gray-500 font-bold mb-6">刪除後資料將無法復原喔！</p>
+            <div class="flex justify-center space-x-3">
+                <button type="button" onclick="closeConfirmModal()" class="lib-btn lib-btn-outline px-6 py-2">取消</button>
+                <button type="button" id="confirm-yes-btn" class="lib-btn lib-btn-red px-6 py-2">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-lib-wood-dark text-white/80 py-6 mt-auto border-t-4 border-lib-wood">
         <div class="text-center">
@@ -146,8 +162,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-         const firebaseConfig = {
+   const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
@@ -181,12 +196,14 @@
         };
 
         const state = {
-            currentPage: 'works', // 預設首頁改為作品大廳
+            currentPage: 'works', // 預設首頁為作品大廳
             currentUser: null, 
             authUser: null, 
+            isAuthReady: false,   // 防止初始載入閃爍錯誤畫面
+            authError: false,     // 紀錄是否真正發生連線錯誤
             data: {
                 news: [], categories: [], works: [], users: [],
-                settings: { title: '長安', subtitle: '國小資訊應用競賽' }
+                settings: { title: '長安國小', subtitle: '資訊應用競賽' }
             },
             unsubscribes: []
         };
@@ -228,6 +245,8 @@
                 }
             } catch (error) {
                 console.error("Auth error:", error);
+                state.authError = true;
+                state.isAuthReady = true;
                 showToast("系統連線異常 🔌", "error");
                 render(); 
             }
@@ -236,11 +255,16 @@
         onAuthStateChanged(auth, async (user) => {
             state.authUser = user;
             if (user) {
+                state.isAuthReady = true;
+                state.authError = false;
                 setupRealtimeListeners();
                 render(); 
             } else {
                 cleanupListeners();
-                render(); 
+                // 若尚未完成初始驗證，不急著重新渲染錯誤畫面，維持讀取中狀態
+                if (state.isAuthReady) {
+                    render(); 
+                }
             }
         });
 
@@ -296,7 +320,18 @@
             document.getElementById('nav-site-subtitle').innerHTML = escapeHtml(state.data.settings.subtitle);
             document.getElementById('footer-text').innerText = `© 2026 ${state.data.settings.title} ${state.data.settings.subtitle}. All Rights Reserved.`;
 
-            if (!state.authUser) {
+            // 還在等待 Firebase 初始驗證時，保持顯示讀取中畫面
+            if (!state.isAuthReady && !state.authError) {
+                content.innerHTML = `
+                    <div class="flex flex-col justify-center items-center h-64 text-lib-wood">
+                        <i class="fa-solid fa-circle-notch fa-spin text-5xl mb-4"></i>
+                        <h2 class="text-xl font-bold tracking-widest">系統讀取中...</h2>
+                    </div>`;
+                return;
+            }
+
+            // 確定連線失敗時才顯示錯誤訊息
+            if (state.authError || !state.authUser) {
                 content.innerHTML = `
                     <div class="flex flex-col justify-center items-center h-64 bg-white p-10 max-w-lg mx-auto mt-10 text-center shadow rounded-lg border-t-4 border-red-500">
                         <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
@@ -308,9 +343,8 @@
             
             renderNav();
             
-            // 防呆：登入後且預設沒指定頁面，強迫導向 works (大廳)
-            if (!state.currentPage || state.currentPage === 'home') {
-                if (state.currentPage !== 'home') state.currentPage = 'works';
+            if (!state.currentPage) {
+                state.currentPage = 'works';
             }
             
             switch (state.currentPage) {
@@ -326,7 +360,7 @@
 
         const renderNav = () => {
             const menu = document.getElementById('nav-menu');
-            // 順序：作品大廳 -> 最新消息
+            // 導覽順序：作品大廳 -> 最新消息
             let html = `
                 <button onclick="navigate('works')" class="lib-btn ${state.currentPage==='works'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">作品大廳</button>
                 <button onclick="navigate('home')" class="lib-btn ${state.currentPage==='home'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">最新消息</button>
@@ -340,7 +374,7 @@
 
                 html += `
                     <button onclick="navigate('${rolePage}')" class="lib-btn lib-btn-outline ml-2 text-lib-wood border-lib-wood/30 bg-lib-wood/5 hover:bg-lib-wood/10 shadow-sm">${roleLabels[rolePage]}</button>
-                    <span class="text-sm font-bold text-gray-600 hidden md:inline ml-3 px-3 py-1 bg-gray-100 rounded border border-gray-200"><i class="fa-solid fa-user text-gray-400 mr-1"></i> ${state.currentUser.name}</span>
+                    <span class="text-sm font-bold text-gray-600 hidden md:inline ml-3 px-3 py-1 bg-gray-100 rounded border border-gray-200"><i class="fa-solid fa-user text-gray-400 mr-1"></i> ${escapeHtml(state.currentUser.name)}</span>
                     <button onclick="handleLogout()" class="text-gray-400 hover:text-red-500 transition px-3 py-2 ml-1" title="登出"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
                 `;
             }
@@ -352,7 +386,7 @@
             const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
             const getStudentName = (id) => state.data.users.find(u => u.id === id)?.name || '未知同學';
             
-            // 只有被標記為「公開 (isPublic)」的作品才會顯示
+            // 只有被標記為「公開 (isPublic)」的作品才會顯示於作品大廳，且不顯示成績
             let displayWorks = state.data.works.filter(w => w.isPublic); 
             if (window.currentFilterCat) {
                 displayWorks = displayWorks.filter(w => w.categoryId === window.currentFilterCat);
@@ -364,9 +398,9 @@
 
                 let awardHtml = '<span class="text-gray-600 font-bold">作品參展</span>';
                 if (w.award === '優等') {
-                    awardHtml = `<span class="text-lib-orange font-bold text-lg tracking-wide border border-lib-orange px-2 py-0.5 rounded shadow-sm bg-orange-50"><i class="fa-solid fa-crown mr-1"></i>榮獲優等</span>`;
+                    awardHtml = `<span class="text-amber-600 font-black text-lg tracking-wide border-2 border-amber-500 px-3 py-1 rounded shadow-sm bg-amber-50 inline-flex items-center"><i class="fa-solid fa-crown text-2xl text-amber-500 mr-2"></i>榮獲優等</span>`;
                 } else if (w.award === '佳作') {
-                    awardHtml = `<span class="text-lib-teal font-bold"><i class="fa-solid fa-medal mr-1"></i>榮獲佳作</span>`;
+                    awardHtml = `<span class="text-lib-teal font-bold text-base inline-flex items-center"><i class="fa-solid fa-medal text-lg mr-1.5"></i>榮獲佳作</span>`;
                 }
 
                 return `
@@ -379,7 +413,7 @@
                         <h3 class="text-2xl font-bold text-gray-800 font-serif-title mb-4 leading-snug cursor-pointer hover:opacity-70" onclick="viewWorkDetail('${w.id}')">${displayTitle}</h3>
                         
                         <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded p-3 text-sm mb-4">
-                            <span class="font-bold text-gray-800 mb-1 block">評審講評與榮譽：</span>
+                            <span class="font-bold text-gray-500 text-xs mb-1.5 block">榮譽紀錄：</span>
                             ${awardHtml}
                         </div>
                     </div>
@@ -429,15 +463,15 @@
 
         const tmplHome = () => {
             const newsHtml = state.data.news.sort((a,b) => b.createdAt - a.createdAt).map(n => `
-                <div class="border-b border-gray-200 py-4 hover:bg-gray-50 px-4 rounded transition cursor-pointer group" onclick="viewNewsDetail('${n.id}')">
-                    <div class="flex items-center justify-between mb-1">
-                        <h3 class="text-xl font-bold text-gray-800 font-serif-title group-hover:text-lib-wood transition">
-                            <i class="fa-solid fa-caret-right text-lib-wood mr-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                <div class="border-b border-gray-200 py-3.5 hover:bg-blue-50/50 px-4 rounded transition cursor-pointer group flex items-center justify-between" onclick="viewNewsDetail('${n.id}')">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-caret-right text-lib-wood transition-transform group-hover:translate-x-1"></i>
+                        <h3 class="text-lg font-bold text-gray-800 font-serif-title group-hover:text-lib-wood transition">
                             ${escapeHtml(n.title)}
                         </h3>
                     </div>
-                    <div class="text-sm font-bold text-gray-400 flex items-center">
-                        <i class="fa-regular fa-clock mr-1.5"></i> ${new Date(n.createdAt).toLocaleDateString('zh-TW')}
+                    <div class="text-xs font-bold text-gray-400 flex items-center whitespace-nowrap ml-4">
+                        <i class="fa-regular fa-clock mr-1"></i> ${new Date(n.createdAt).toLocaleDateString('zh-TW')}
                     </div>
                 </div>
             `).join('') || `
@@ -459,7 +493,7 @@
 
                 <!-- News Detail Modal -->
                 <div id="news-modal" class="fixed inset-0 bg-gray-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-                    <div class="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl border-t-8 border-lib-wood">
+                    <div class="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl border-t-8 border-lib-wood">
                         <button onclick="closeNewsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl transition"><i class="fa-solid fa-xmark"></i></button>
                         <div id="news-modal-content"></div>
                     </div>
@@ -496,7 +530,7 @@
             
             const tabClass = (tab, colorClass) => window.currentAdminTab === tab 
                 ? `lib-btn text-white bg-${colorClass.replace('lib-btn-','lib-')} shadow-md z-10 relative border-b-0 rounded-b-none pb-3 pt-3` 
-                : 'lib-btn text-gray-500 bg-gray-100 hover:bg-gray-200 border border-gray-200 border-b-0 rounded-b-none pb-2 pt-2 mt-1';
+                : 'lib-btn text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200 border-b-0 rounded-b-none pb-2 pt-2 mt-1';
 
             let tabContent = '';
             
@@ -512,8 +546,6 @@
                     </div>
                 `;
             } else if (window.currentAdminTab === 'users') {
-                const catOptions = state.data.categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-                
                 const usersHtml = state.data.users.map(u => `
                     <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                         <td class="p-3 font-bold text-gray-800">${escapeHtml(u.name)}</td>
@@ -529,9 +561,10 @@
                                 </select>
                             ` : '-'}
                         </td>
-                        <td class="p-3 text-sm text-gray-400">${u.password}</td>
-                        <td class="p-3 text-right">
-                            <button onclick="deleteDocHandler('users', '${u.id}')" class="text-gray-400 hover:text-red-500 transition p-2" ${u.username === 'admin' ? 'disabled style="opacity:0.2"' : ''}><i class="fa-solid fa-trash"></i></button>
+                        <td class="p-3 text-sm text-gray-400">${escapeHtml(u.password)}</td>
+                        <td class="p-3 text-right whitespace-nowrap">
+                            <button onclick="openEditUserModal('${u.id}')" class="text-lib-wood hover:text-blue-800 transition p-2 mr-1" title="修改帳號資料"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteDocHandler('users', '${u.id}')" class="text-gray-400 hover:text-red-500 transition p-2" ${u.username === 'admin' ? 'disabled style="opacity:0.2;cursor:not-allowed;"' : ''} title="刪除帳號"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `).join('');
@@ -554,14 +587,14 @@
                     </div>
                     
                     <div class="mb-8 bg-gray-50 p-5 rounded border border-gray-200">
-                        <h3 class="font-bold mb-3 text-gray-800"><i class="fa-solid fa-file-import text-lib-blue mr-2"></i>大量匯入名單</h3>
+                        <h3 class="font-bold mb-3 text-gray-800"><i class="fa-solid fa-file-import text-lib-blue mr-2"></i>大量匯入學生名單</h3>
                         <p class="text-sm text-gray-500 mb-2 font-bold">格式：<code class="bg-gray-200 px-2 py-0.5 rounded text-gray-700">姓名,帳號,密碼</code> (每行一筆)</p>
-                        <textarea id="bulk-students" class="lib-input h-24 mb-3 font-mono text-sm" placeholder="王小明,s001,pwd123..."></textarea>
+                        <textarea id="bulk-students" class="lib-input h-24 mb-3 text-sm" placeholder="王小明,s001,pwd123..."></textarea>
                         <button onclick="handleBulkImport()" class="lib-btn lib-btn-blue px-5 py-2 text-sm">開始匯入</button>
                     </div>
 
-                    <div class="border border-gray-200 rounded bg-white">
-                        <table class="w-full text-left">
+                    <div class="border border-gray-200 rounded bg-white overflow-x-auto">
+                        <table class="w-full text-left min-w-[650px]">
                             <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 font-bold">姓名</th><th class="p-3 font-bold">帳號</th><th class="p-3 font-bold">角色</th><th class="p-3 font-bold">評分指派(評審)</th><th class="p-3 font-bold">密碼</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
                             <tbody>${usersHtml}</tbody>
                         </table>
@@ -572,8 +605,8 @@
                     <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                         <td class="p-4 font-bold text-gray-800 text-lg">${escapeHtml(c.name)}</td>
                         <td class="p-4 text-sm font-bold text-gray-500">${escapeHtml(c.description || '無')}</td>
-                        <td class="p-4 text-right">
-                            <button onclick="handleEditCategory('${c.id}', '${escapeHtml(c.name)}', '${escapeHtml(c.description||'')}')" class="lib-btn lib-btn-outline px-3 py-1 text-sm mr-2"><i class="fa-solid fa-pen mr-1"></i>改名</button>
+                        <td class="p-4 text-right whitespace-nowrap">
+                            <button onclick="openEditCategoryModal('${c.id}')" class="lib-btn lib-btn-outline px-3 py-1 text-sm mr-2"><i class="fa-solid fa-pen mr-1"></i>修改</button>
                             <button onclick="deleteDocHandler('categories', '${c.id}')" class="lib-btn lib-btn-red px-3 py-1 text-sm"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
@@ -587,7 +620,7 @@
                             <button type="submit" class="lib-btn lib-btn-orange py-2 h-[42px]">新增項目</button>
                         </form>
                     </div>
-                    <div class="border border-gray-200 rounded bg-white">
+                    <div class="border border-gray-200 rounded bg-white overflow-x-auto">
                         <table class="w-full text-left">
                             <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 font-bold">比賽項目名稱</th><th class="p-3 font-bold">說明</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
                             <tbody>${catsHtml}</tbody>
@@ -596,14 +629,14 @@
                 `;
             } else if (window.currentAdminTab === 'news') {
                  const newsListHtml = state.data.news.sort((a,b)=>b.createdAt-a.createdAt).map(n => `
-                    <div class="border-b border-gray-100 py-4 flex justify-between items-center hover:bg-gray-50 px-3 transition">
+                    <div class="border-b border-gray-100 py-3.5 flex justify-between items-center hover:bg-gray-50 px-3 transition">
                         <div>
                             <div class="font-bold text-lg text-gray-800 font-serif-title">${escapeHtml(n.title)}</div>
-                            <div class="text-xs font-bold text-gray-400 mt-1"><i class="fa-regular fa-clock mr-1"></i>${new Date(n.createdAt).toLocaleDateString()}</div>
+                            <div class="text-xs font-bold text-gray-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${new Date(n.createdAt).toLocaleDateString('zh-TW')}</div>
                         </div>
                         <div class="flex space-x-2">
-                            <button onclick="openEditNewsModal('${n.id}')" class="lib-btn lib-btn-outline px-3 py-1 text-sm"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteDocHandler('news', '${n.id}')" class="lib-btn lib-btn-red px-3 py-1 text-sm"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="openEditNewsModal('${n.id}')" class="lib-btn lib-btn-outline px-3 py-1 text-sm" title="修改公告"><i class="fa-solid fa-pen mr-1"></i>修改</button>
+                            <button onclick="deleteDocHandler('news', '${n.id}')" class="lib-btn lib-btn-red px-3 py-1 text-sm" title="刪除公告"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                 `).join('');
@@ -616,29 +649,30 @@
                                 <input type="text" id="add-n-title" required class="lib-input">
                             </div>
                             <div>
-                                <label class="block font-bold mb-1 text-sm text-gray-700">內容</label>
-                                <div class="border border-gray-300 border-b-0 rounded-t bg-gray-100 p-2 flex space-x-2">
-                                    <button type="button" onclick="document.execCommand('bold',false,null)" class="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold" title="粗體"><i class="fa-solid fa-bold"></i></button>
-                                    <button type="button" onclick="document.execCommand('fontSize',false,'5')" class="px-2 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold text-sm" title="大字">大</button>
-                                    <button type="button" onclick="document.execCommand('fontSize',false,'3')" class="px-2 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold text-sm" title="一般字">中</button>
-                                    <span class="w-px h-8 bg-gray-300 mx-1"></span>
-                                    <!-- 更新為藍色系顏色 -->
+                                <label class="block font-bold mb-1 text-sm text-gray-700">內容 (可變更字體大小、粗細與顏色)</label>
+                                <div class="border border-gray-300 border-b-0 rounded-t bg-gray-100 p-2 flex flex-wrap gap-1 items-center">
+                                    <button type="button" onclick="document.execCommand('bold',false,null)" class="w-8 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold" title="粗體"><i class="fa-solid fa-bold"></i></button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'6')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="特大字">特大</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'5')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="大字">大</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'3')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="一般字">中</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'2')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="小字">小</button>
+                                    <span class="w-px h-6 bg-gray-300 mx-1"></span>
+                                    <button type="button" onclick="document.execCommand('foreColor',false,'#EF4444')" class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-gray-200 rounded font-black" title="紅色">A</button>
                                     <button type="button" onclick="document.execCommand('foreColor',false,'#3B82F6')" class="w-8 h-8 flex items-center justify-center text-lib-red hover:bg-gray-200 rounded font-black" title="亮藍">A</button>
                                     <button type="button" onclick="document.execCommand('foreColor',false,'#14B8A6')" class="w-8 h-8 flex items-center justify-center text-lib-teal hover:bg-gray-200 rounded font-black" title="湖水綠">A</button>
-                                    <button type="button" onclick="document.execCommand('foreColor',false,'#0EA5E9')" class="w-8 h-8 flex items-center justify-center text-lib-orange hover:bg-gray-200 rounded font-black" title="天空藍">A</button>
                                     <button type="button" onclick="document.execCommand('foreColor',false,'#0F172A')" class="w-8 h-8 flex items-center justify-center text-lib-text hover:bg-gray-200 rounded font-black" title="深色">A</button>
                                 </div>
                                 <div id="add-n-content" contenteditable="true" class="w-full border border-gray-300 rounded-b p-3 h-32 overflow-y-auto bg-white rich-text-content outline-none focus:border-lib-pink"></div>
                             </div>
                             <div class="bg-white p-3 rounded border border-gray-200">
-                                <label class="block font-bold mb-2 text-sm text-gray-700"><i class="fa-solid fa-link mr-1"></i>附加雲端連結</label>
+                                <label class="block font-bold mb-2 text-sm text-gray-700"><i class="fa-solid fa-link mr-1"></i>附加檔案超連結 (可新增多個)</label>
                                 <div id="links-container" class="space-y-2 mb-3"></div>
                                 <button type="button" onclick="addLinkField()" class="text-sm lib-btn lib-btn-outline px-4 py-1.5"><i class="fa-solid fa-plus mr-1"></i> 新增一個超連結</button>
                             </div>
                             <button type="submit" class="lib-btn lib-btn-pink px-8 py-2 w-full sm:w-auto text-base mt-2 shadow-sm">發佈公告</button>
                         </form>
                     </div>
-                    <div class="bg-white p-2 border border-gray-200 rounded shadow-sm">${newsListHtml}</div>
+                    <div class="bg-white p-2 border border-gray-200 rounded shadow-sm">${newsListHtml || '<div class="p-6 text-center text-gray-400 font-bold">目前尚無公告</div>'}</div>
                 `;
             } else if (window.currentAdminTab === 'grades') {
                  const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
@@ -683,13 +717,13 @@
 
                  tabContent = `
                     <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-blue-50 p-4 rounded border border-blue-200">
-                        <p class="text-sm font-bold text-blue-800 mb-3 sm:mb-0"><i class="fa-solid fa-circle-info mr-1"></i> 設定獎項並勾選「公開顯示」後，作品才會出現在書架大廳！</p>
+                        <p class="text-sm font-bold text-blue-800 mb-3 sm:mb-0"><i class="fa-solid fa-circle-info mr-1"></i> 設定獎項並勾選「大廳公開」後，作品才會出現在公開的作品大廳（大廳不會顯示分數）！</p>
                         <button onclick="exportScoresToCSV()" class="lib-btn lib-btn-wood px-5 py-2 text-sm whitespace-nowrap"><i class="fa-solid fa-file-csv mr-1"></i> 匯出成績報表</button>
                     </div>
                     <div class="border border-gray-200 rounded bg-white overflow-x-auto shadow-sm">
                         <table class="w-full text-left min-w-[750px]">
                             <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 font-bold">比賽項目</th><th class="p-3 font-bold">學生</th><th class="p-3 font-bold">平均分數</th><th class="p-3 font-bold">指定獎項</th><th class="p-3 text-center font-bold">大廳公開</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
-                            <tbody>${gradesHtml}</tbody>
+                            <tbody>${gradesHtml || '<tr><td colspan="6" class="p-8 text-center text-gray-400 font-bold">目前尚無參賽作品</td></tr>'}</tbody>
                         </table>
                     </div>
                  `;
@@ -702,7 +736,7 @@
                         <h2 class="text-2xl font-black text-gray-800 font-serif-title">系統管理後台</h2>
                     </div>
                     
-                    <div class="flex flex-wrap pl-2">
+                    <div class="flex flex-wrap pl-2 gap-1">
                         <button onclick="switchAdminTab('grades')" class="${tabClass('grades', 'lib-btn-wood')}"><i class="fa-solid fa-ranking-star mr-1"></i> 成績與作品</button>
                         <button onclick="switchAdminTab('news')" class="${tabClass('news', 'lib-btn-pink')}"><i class="fa-solid fa-bullhorn mr-1"></i> 系統公告</button>
                         <button onclick="switchAdminTab('categories')" class="${tabClass('categories', 'lib-btn-orange')}"><i class="fa-solid fa-tags mr-1"></i> 比賽項目</button>
@@ -728,19 +762,22 @@
                             </div>
                             <div>
                                 <label class="block font-bold mb-1 text-sm text-gray-700">內容</label>
-                                <div class="border border-gray-300 border-b-0 rounded-t bg-gray-100 p-2 flex space-x-2">
-                                    <button type="button" onclick="document.execCommand('bold',false,null)" class="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold" title="粗體"><i class="fa-solid fa-bold"></i></button>
-                                    <button type="button" onclick="document.execCommand('fontSize',false,'5')" class="px-2 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold text-sm" title="大字">大</button>
-                                    <button type="button" onclick="document.execCommand('fontSize',false,'3')" class="px-2 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded font-bold text-sm" title="一般字">中</button>
-                                    <span class="w-px h-8 bg-gray-300 mx-1"></span>
-                                    <!-- 更新為藍色系顏色 -->
+                                <div class="border border-gray-300 border-b-0 rounded-t bg-gray-100 p-2 flex flex-wrap gap-1 items-center">
+                                    <button type="button" onclick="document.execCommand('bold',false,null)" class="w-8 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold" title="粗體"><i class="fa-solid fa-bold"></i></button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'6')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="特大字">特大</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'5')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="大字">大</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'3')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="一般字">中</button>
+                                    <button type="button" onclick="document.execCommand('fontSize',false,'2')" class="px-2 h-8 flex items-center justify-center text-gray-700 hover:bg-gray-200 rounded font-bold text-sm" title="小字">小</button>
+                                    <span class="w-px h-6 bg-gray-300 mx-1"></span>
+                                    <button type="button" onclick="document.execCommand('foreColor',false,'#EF4444')" class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-gray-200 rounded font-black" title="紅色">A</button>
                                     <button type="button" onclick="document.execCommand('foreColor',false,'#3B82F6')" class="w-8 h-8 flex items-center justify-center text-lib-red hover:bg-gray-200 rounded font-black" title="亮藍">A</button>
                                     <button type="button" onclick="document.execCommand('foreColor',false,'#14B8A6')" class="w-8 h-8 flex items-center justify-center text-lib-teal hover:bg-gray-200 rounded font-black" title="湖水綠">A</button>
+                                    <button type="button" onclick="document.execCommand('foreColor',false,'#0F172A')" class="w-8 h-8 flex items-center justify-center text-lib-text hover:bg-gray-200 rounded font-black" title="深色">A</button>
                                 </div>
                                 <div id="edit-n-content" contenteditable="true" class="w-full border border-gray-300 rounded-b p-3 h-40 overflow-y-auto bg-white rich-text-content outline-none focus:border-lib-pink"></div>
                             </div>
                             <div class="bg-white p-3 rounded border border-gray-200">
-                                <label class="block font-bold mb-2 text-sm text-gray-700"><i class="fa-solid fa-link mr-1"></i>附加雲端連結</label>
+                                <label class="block font-bold mb-2 text-sm text-gray-700"><i class="fa-solid fa-link mr-1"></i>附加檔案超連結</label>
                                 <div id="edit-n-links-container" class="space-y-2 mb-3"></div>
                                 <button type="button" onclick="addEditLinkField()" class="text-sm lib-btn lib-btn-outline px-4 py-1.5"><i class="fa-solid fa-plus mr-1"></i> 新增一個超連結</button>
                             </div>
@@ -772,6 +809,49 @@
                             <div class="pt-6 text-right flex justify-end space-x-3">
                                 <button type="button" onclick="closeEditWorkModal()" class="lib-btn lib-btn-outline px-6 py-2">取消</button>
                                 <button type="submit" class="lib-btn lib-btn-wood px-8 py-2">儲存修改</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 修改比賽項目 Modal -->
+                <div id="edit-category-modal" class="fixed inset-0 bg-gray-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-white rounded-lg w-full max-w-md p-8 relative shadow-2xl border-t-8 border-lib-orange">
+                        <button type="button" onclick="closeEditCategoryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl transition"><i class="fa-solid fa-xmark"></i></button>
+                        <h3 class="font-black text-2xl mb-4 text-gray-800 border-b pb-3 font-serif-title"><i class="fa-solid fa-tags mr-2 text-lib-orange"></i>修改比賽項目</h3>
+                        <form onsubmit="submitEditCategory(event)" class="space-y-4 text-left">
+                            <input type="hidden" id="edit-c-id">
+                            <div><label class="block font-bold mb-1 text-sm text-gray-700">比賽名稱</label><input type="text" id="edit-c-name" required class="lib-input"></div>
+                            <div><label class="block font-bold mb-1 text-sm text-gray-700">簡單說明</label><input type="text" id="edit-c-desc" class="lib-input"></div>
+                            <div class="pt-4 text-right flex justify-end space-x-3">
+                                <button type="button" onclick="closeEditCategoryModal()" class="lib-btn lib-btn-outline px-6 py-2">取消</button>
+                                <button type="submit" class="lib-btn lib-btn-orange px-8 py-2">儲存修改</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 修改帳號資料 Modal -->
+                <div id="edit-user-modal" class="fixed inset-0 bg-gray-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-white rounded-lg w-full max-w-md p-8 relative shadow-2xl border-t-8 border-lib-blue">
+                        <button type="button" onclick="closeEditUserModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl transition"><i class="fa-solid fa-xmark"></i></button>
+                        <h3 class="font-black text-2xl mb-4 text-gray-800 border-b pb-3 font-serif-title"><i class="fa-solid fa-user-pen mr-2 text-lib-blue"></i>修改帳號資料</h3>
+                        <form onsubmit="submitEditUser(event)" class="space-y-4 text-left">
+                            <input type="hidden" id="edit-u-id">
+                            <div><label class="block font-bold mb-1 text-sm text-gray-700">姓名</label><input type="text" id="edit-u-name" required class="lib-input"></div>
+                            <div><label class="block font-bold mb-1 text-sm text-gray-700">帳號</label><input type="text" id="edit-u-username" required class="lib-input"></div>
+                            <div><label class="block font-bold mb-1 text-sm text-gray-700">密碼</label><input type="text" id="edit-u-password" required class="lib-input"></div>
+                            <div>
+                                <label class="block font-bold mb-1 text-sm text-gray-700">角色</label>
+                                <select id="edit-u-role" class="lib-input cursor-pointer">
+                                    <option value="student">學生</option>
+                                    <option value="judge">評審</option>
+                                    <option value="admin">管理員</option>
+                                </select>
+                            </div>
+                            <div class="pt-4 text-right flex justify-end space-x-3">
+                                <button type="button" onclick="closeEditUserModal()" class="lib-btn lib-btn-outline px-6 py-2">取消</button>
+                                <button type="submit" class="lib-btn lib-btn-blue px-8 py-2">儲存修改</button>
                             </div>
                         </form>
                     </div>
@@ -861,13 +941,13 @@
              }
 
              const judgeWorksHtml = worksToJudge.map(w => {
-                 const myScore = (w.scores && w.scores[myId]) ? w.scores[myId] : '';
+                 const myScore = (w.scores && w.scores[myId] !== undefined) ? w.scores[myId] : '';
                  const displayTitle = `${escapeHtml(getCatName(w.categoryId))} - ${escapeHtml(getStudentName(w.studentId))}`;
                  return `
                     <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                         <td class="p-4">
                             <span class="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 block w-max mb-2">${escapeHtml(getCatName(w.categoryId))}</span>
-                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="font-bold text-lg text-lib-wood hover:text-lib-blue transition font-serif-title">${escapeHtml(displayTitle)} <i class="fa-solid fa-arrow-up-right-from-square text-sm ml-1 text-gray-400"></i></a>
+                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="font-bold text-lg text-lib-wood hover:text-lib-blue transition font-serif-title">${displayTitle} <i class="fa-solid fa-arrow-up-right-from-square text-sm ml-1 text-gray-400"></i></a>
                         </td>
                         <td class="p-4 font-bold text-gray-700"><i class="fa-solid fa-user text-gray-400 mr-2"></i>${escapeHtml(getStudentName(w.studentId))}</td>
                         <td class="p-4">
@@ -1008,6 +1088,61 @@
             document.getElementById('bulk-students').value = '';
         };
 
+        /* 帳號修改邏輯 */
+        window.openEditUserModal = (id) => {
+            const user = state.data.users.find(u => u.id === id);
+            if (!user) return;
+            
+            document.getElementById('edit-u-id').value = id;
+            document.getElementById('edit-u-name').value = user.name;
+            document.getElementById('edit-u-username').value = user.username;
+            document.getElementById('edit-u-password').value = user.password;
+            document.getElementById('edit-u-role').value = user.role;
+            
+            // 保護預設 admin 帳號不被意外降級，但允許修改密碼與姓名
+            const roleSelect = document.getElementById('edit-u-role');
+            if (user.username === 'admin') {
+                roleSelect.disabled = true;
+                roleSelect.title = "系統預設管理員無法更改角色";
+            } else {
+                roleSelect.disabled = false;
+                roleSelect.title = "";
+            }
+
+            document.getElementById('edit-user-modal').classList.remove('hidden');
+        };
+
+        window.closeEditUserModal = () => { document.getElementById('edit-user-modal').classList.add('hidden'); };
+
+        window.submitEditUser = async (e) => {
+            e.preventDefault();
+            if (!state.authUser || state.currentUser?.role !== 'admin') return;
+
+            const id = document.getElementById('edit-u-id').value;
+            const name = document.getElementById('edit-u-name').value.trim();
+            const username = document.getElementById('edit-u-username').value.trim();
+            const password = document.getElementById('edit-u-password').value;
+            let role = document.getElementById('edit-u-role').value;
+
+            const existingUser = state.data.users.find(u => u.id === id);
+            if (existingUser && existingUser.username === 'admin') {
+                 role = 'admin';
+            }
+
+            const duplicate = state.data.users.find(u => u.username === username && u.id !== id);
+            if (duplicate) {
+                showToast('這個帳號已經有人使用了，請更換', 'error');
+                return;
+            }
+
+            try {
+                await updateDoc(getDocRef('users', id), { name, username, password, role });
+                showToast('帳號資料修改成功！');
+                closeEditUserModal();
+            } catch (err) { console.error(err); showToast('修改失敗', 'error'); }
+        };
+
+        /* 比賽項目管理與修改邏輯 */
         window.handleAddCategory = async (e) => {
             e.preventDefault();
             if (!state.authUser || state.currentUser?.role !== 'admin') return;
@@ -1022,23 +1157,39 @@
             } catch (err) { console.error(err); showToast('新增失敗', 'error'); }
         };
 
-        window.handleEditCategory = async (id, oldName, oldDesc) => {
+        window.openEditCategoryModal = (id) => {
+            const cat = state.data.categories.find(c => c.id === id);
+            if (!cat) return;
+            document.getElementById('edit-c-id').value = id;
+            document.getElementById('edit-c-name').value = cat.name;
+            document.getElementById('edit-c-desc').value = cat.description || '';
+            document.getElementById('edit-category-modal').classList.remove('hidden');
+        };
+
+        window.closeEditCategoryModal = () => {
+            document.getElementById('edit-category-modal').classList.add('hidden');
+        };
+
+        window.submitEditCategory = async (e) => {
+            e.preventDefault();
             if (!state.authUser || state.currentUser?.role !== 'admin') return;
-            const newName = prompt("請輸入新項目名稱:", oldName);
-            if (newName === null || newName.trim() === '') return; 
-            const newDesc = prompt("請輸入新的說明:", oldDesc);
+            const id = document.getElementById('edit-c-id').value;
+            const name = document.getElementById('edit-c-name').value.trim();
+            const description = document.getElementById('edit-c-desc').value.trim();
             try {
-                await updateDoc(getDocRef('categories', id), { name: newName.trim(), description: newDesc !== null ? newDesc.trim() : oldDesc });
-                showToast('修改成功！');
+                await updateDoc(getDocRef('categories', id), { name, description });
+                showToast('比賽項目修改成功！');
+                closeEditCategoryModal();
             } catch (err) { console.error(err); showToast('修改失敗', 'error'); }
         };
 
+        /* 最新消息新增與修改邏輯 */
         window.addLinkField = () => {
             const container = document.getElementById('links-container');
             const div = document.createElement('div');
             div.className = 'flex space-x-2';
             div.innerHTML = `
-                <input type="text" placeholder="按鈕名稱" class="link-name lib-input w-1/3 text-sm">
+                <input type="text" placeholder="附件名稱" class="link-name lib-input w-1/3 text-sm">
                 <input type="url" placeholder="網址 (https://...)" class="link-url lib-input w-full text-sm">
                 <button type="button" onclick="this.parentElement.remove()" class="bg-gray-100 text-gray-500 w-10 h-[40px] flex items-center justify-center rounded hover:text-red-500 border border-gray-200 transition"><i class="fa-solid fa-times"></i></button>
             `;
@@ -1071,7 +1222,6 @@
             } catch (err) { console.error(err); showToast('發佈失敗', 'error'); }
         };
 
-        /* Edit News Logic */
         window.openEditNewsModal = (id) => {
             const news = state.data.news.find(n => n.id === id);
             if (!news) return;
@@ -1096,7 +1246,7 @@
             const div = document.createElement('div');
             div.className = 'flex space-x-2';
             div.innerHTML = `
-                <input type="text" placeholder="按鈕名稱" value="${escapeHtml(name)}" class="edit-link-name lib-input w-1/3 text-sm">
+                <input type="text" placeholder="附件名稱" value="${escapeHtml(name)}" class="edit-link-name lib-input w-1/3 text-sm">
                 <input type="url" placeholder="網址 (https://...)" value="${escapeHtml(url)}" class="edit-link-url lib-input w-full text-sm">
                 <button type="button" onclick="this.parentElement.remove()" class="bg-gray-100 text-gray-500 w-10 h-[40px] flex items-center justify-center rounded hover:text-red-500 border border-gray-200 transition"><i class="fa-solid fa-times"></i></button>
             `;
@@ -1127,7 +1277,7 @@
             } catch (err) { console.error(err); showToast('修改失敗', 'error'); }
         };
 
-        /* Edit Work Logic (Admin) */
+        /* 學生作品修改邏輯 (管理員) */
         window.openEditWorkModal = (id) => {
             const work = state.data.works.find(w => w.id === id);
             if (!work) return;
@@ -1168,7 +1318,7 @@
             } catch (err) { console.error(err); showToast('上傳失敗', 'error'); }
         };
 
-        /* Judge Actions */
+        /* 評審評分邏輯 */
         window.handleScore = async (workId) => {
             if (!state.authUser || state.currentUser?.role !== 'judge') return;
             const scoreNum = parseInt(document.getElementById(`score-${workId}`).value);
@@ -1183,7 +1333,7 @@
             } catch (err) { console.error(err); showToast('儲存失敗', 'error'); }
         };
 
-        /* Admin Grade Actions */
+        /* 管理員成績與獎項控制 */
         window.updateWorkAward = async (workId, awardVal) => {
             if (!state.authUser || state.currentUser?.role !== 'admin') return;
             try {
@@ -1230,17 +1380,34 @@
 
         window.filterWorks = (catId) => { window.currentFilterCat = catId; render(); };
 
-        window.deleteDocHandler = async (colName, docId) => {
+        /* 自訂刪除確認視窗邏輯 */
+        let pendingDelete = null;
+
+        window.deleteDocHandler = (colName, docId) => {
             if (!state.authUser) return;
-            if(confirm("確定要刪除嗎？刪掉就無法復原囉！ 🗑️")) {
-                try {
-                    await deleteDoc(getDocRef(colName, docId));
-                    showToast('資料已刪除');
-                } catch (err) { console.error(err); showToast('刪除失敗', 'error'); }
-            }
+            pendingDelete = { colName, docId };
+            document.getElementById('confirm-modal').classList.remove('hidden');
         };
 
-        /* Detail Modals */
+        window.closeConfirmModal = () => {
+            pendingDelete = null;
+            document.getElementById('confirm-modal').classList.add('hidden');
+        };
+
+        document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
+            if (!pendingDelete || !state.authUser) return;
+            const { colName, docId } = pendingDelete;
+            closeConfirmModal();
+            try {
+                await deleteDoc(getDocRef(colName, docId));
+                showToast('資料已刪除');
+            } catch (err) {
+                console.error(err);
+                showToast('刪除失敗', 'error');
+            }
+        });
+
+        /* 詳細視窗 Modals */
         window.viewWorkDetail = async (workId) => {
             const work = state.data.works.find(w => w.id === workId);
             if (!work) return;
@@ -1259,9 +1426,9 @@
             
             let awardHtml = '';
             if (work.award === '優等') {
-                awardHtml = `<div class="mb-5 inline-block text-lib-orange border border-lib-orange px-6 py-2 rounded font-bold bg-orange-50 shadow-sm text-lg tracking-wide"><i class="fa-solid fa-crown mr-2"></i>榮獲優等</div>`;
+                awardHtml = `<div class="mb-5 inline-flex items-center text-amber-600 border-2 border-amber-500 px-6 py-2 rounded font-black bg-amber-50 shadow-sm text-xl tracking-wide"><i class="fa-solid fa-crown text-2xl text-amber-500 mr-2"></i>榮獲優等</div>`;
             } else if (work.award === '佳作') {
-                awardHtml = `<div class="mb-5 inline-block text-lib-teal border border-lib-teal px-5 py-1.5 rounded font-bold bg-teal-50 shadow-sm"><i class="fa-solid fa-medal mr-2"></i>榮獲佳作</div>`;
+                awardHtml = `<div class="mb-5 inline-flex items-center text-lib-teal border border-lib-teal px-5 py-1.5 rounded font-bold bg-teal-50 shadow-sm text-lg"><i class="fa-solid fa-medal mr-2"></i>榮獲佳作</div>`;
             }
 
             const modalContent = document.getElementById('modal-content');
@@ -1293,11 +1460,11 @@
             let attachmentsHtml = '';
             if (news.attachments && news.attachments.length > 0) {
                 attachmentsHtml = `
-                    <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap gap-3">
-                        <p class="w-full text-sm font-bold text-gray-500 mb-1"><i class="fa-solid fa-paperclip mr-1 text-gray-400"></i> 附加連結：</p>
+                    <div class="mt-5 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
+                        <span class="w-full text-xs font-bold text-gray-400 mb-1"><i class="fa-solid fa-paperclip mr-1"></i> 附加連結：</span>
                         ${news.attachments.map(att => `
-                            <a href="${escapeHtml(att.url)}" target="_blank" class="lib-btn lib-btn-outline text-sm px-4 py-2 flex items-center">
-                                <i class="fa-solid fa-link mr-2 text-lib-teal"></i>${escapeHtml(att.name)}
+                            <a href="${escapeHtml(att.url)}" target="_blank" class="lib-btn lib-btn-outline text-xs px-3 py-1.5 flex items-center">
+                                <i class="fa-solid fa-link mr-1.5 text-lib-teal"></i>${escapeHtml(att.name)}
                             </a>
                         `).join('')}
                     </div>
@@ -1306,11 +1473,11 @@
 
             const modalContent = document.getElementById('news-modal-content');
             modalContent.innerHTML = `
-                <div class="mb-5 border-b border-gray-200 pb-5">
-                    <h2 class="text-2xl font-black text-gray-800 mb-3 font-serif-title">${escapeHtml(news.title)}</h2>
-                    <span class="text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1 rounded"><i class="fa-regular fa-clock mr-1"></i> 發佈日期：${new Date(news.createdAt).toLocaleDateString('zh-TW')}</span>
+                <div class="mb-4 border-b border-gray-100 pb-3">
+                    <h2 class="text-2xl font-black text-gray-800 mb-1.5 font-serif-title">${escapeHtml(news.title)}</h2>
+                    <span class="text-xs font-bold text-gray-400"><i class="fa-regular fa-clock mr-1"></i> ${new Date(news.createdAt).toLocaleDateString('zh-TW')}</span>
                 </div>
-                <div class="text-gray-700 rich-text-content text-base min-h-[100px]">
+                <div class="text-gray-700 rich-text-content text-base py-2">
                     ${news.content}
                 </div>
                 ${attachmentsHtml}
@@ -1323,12 +1490,8 @@
 
         const escapeHtml = (unsafe) => {
             if(!unsafe) return '';
-            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         };
-
-        window.confirm = (msg) => {
-            try { return window.top.confirm(msg); } catch(e) { return true; }
-        }
 
         initAuth();
 
