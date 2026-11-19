@@ -86,22 +86,6 @@
             color: #1E293B;
         }
 
-        /* 富文本編輯器樣式 */
-        .editor-content {
-            min-height: 140px;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 0.75rem;
-            border: 1.5px solid #BFDBFE;
-            border-top: none;
-            border-radius: 0 0 0.5rem 0.5rem;
-            background: #FFFFFF;
-        }
-        .editor-content:focus {
-            outline: none;
-            border-color: #0284C7;
-        }
-
         /* 自訂捲軸 */
         ::-webkit-scrollbar {
             width: 8px;
@@ -140,7 +124,7 @@
                 <!-- 右側選單按鈕 -->
                 <div class="flex items-center space-x-2 sm:space-x-3" id="nav-actions">
                     <button onclick="switchView('gallery')" class="px-3 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-lib-blue transition">
-                        <i class="fa-solid fa-grid-2 mr-1"></i>作品大廳
+                        <i class="fa-solid fa-table-cells-large mr-1"></i>作品大廳
                     </button>
                     <button onclick="switchView('news')" class="px-3 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-lib-blue transition">
                         <i class="fa-solid fa-bullhorn mr-1"></i>最新消息
@@ -279,12 +263,12 @@
     <!-- Firebase SDK 與應用程式核心邏輯 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ==========================================
         // 請在此填入您的 Firebase 專案設定金鑰
         // ==========================================
-const firebaseConfig = {
+   const firebaseConfig = {
   apiKey: "AIzaSyAOfAUMdUWJ1rDfkrLt-B3egRhv8kOVUc4",
   authDomain: "chanesgame.firebaseapp.com",
   projectId: "chanesgame",
@@ -292,7 +276,6 @@ const firebaseConfig = {
   messagingSenderId: "720126054959",
   appId: "1:720126054959:web:85dc5389bb7c5df58c6cda"
 };
-
 
 
         // 全域狀態管理
@@ -468,7 +451,9 @@ const firebaseConfig = {
 
                 onSnapshot(collection(db, 'news'), (snap) => {
                     state.news = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    if (loadedCount >= 5 && currentView === 'news') renderCurrentView();
+                    if (loadedCount >= 5 && (currentView === 'news' || (currentView === 'admin' && currentAdminTab === 'news'))) {
+                        renderCurrentView();
+                    }
                 }, handleDbError);
 
             } catch (err) {
@@ -518,7 +503,6 @@ const firebaseConfig = {
                     </button>
                 `;
             } else if (currentUser.role === 'admin') {
-                // 管理員同時具備「評分專區」與「管理後台」入口
                 roleBtns = `
                     <button onclick="switchView('judge')" class="px-3 py-2 rounded-lg text-sm font-bold bg-indigo-100 text-indigo-900 hover:bg-indigo-200 transition">
                         <i class="fa-solid fa-gavel mr-1"></i>評分專區
@@ -675,7 +659,7 @@ const firebaseConfig = {
         };
 
         // ==========================================
-        // 視圖 2：最新消息公告
+        // 視圖 2：最新消息公告 (支援多筆附件連結顯示)
         // ==========================================
         function renderNews(container) {
             container.innerHTML = `
@@ -690,7 +674,16 @@ const firebaseConfig = {
                                     <h2 class="text-lg font-bold text-slate-800">${escapeHtml(n.title)}</h2>
                                     <span class="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded">${new Date(n.createdAt).toLocaleDateString('zh-TW')}</span>
                                 </div>
-                                <div class="text-sm text-slate-700 leading-relaxed prose max-w-none">${n.content}</div>
+                                <div class="text-sm text-slate-700 leading-relaxed whitespace-pre-line">${escapeHtml(n.content)}</div>
+                                ${n.links && n.links.length > 0 ? `
+                                    <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+                                        ${n.links.map(l => `
+                                            <a href="${escapeHtml(l.url)}" target="_blank" class="inline-flex items-center text-xs font-bold text-white bg-lib-blue hover:bg-sky-700 px-3.5 py-1.5 rounded-lg shadow-sm transition">
+                                                <i class="fa-solid fa-file-arrow-down mr-1.5"></i>${escapeHtml(l.name || '開啟附件檔案')}
+                                            </a>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
                             </div>
                         `).join('') : `
                             <div class="bg-white rounded-xl p-12 text-center text-slate-400 border border-blue-100">
@@ -742,9 +735,7 @@ const firebaseConfig = {
 
             const foundUser = state.users.find(u => {
                 if (u.username !== username) return false;
-                // 優先比對 SHA-256 雜湊值
                 if (u.passwordHash && u.passwordHash === inputHash) return true;
-                // 向下相容舊資料明文密碼，若符合則於登入時自動升級為 SHA-256
                 if (!u.passwordHash && u.password === password) return true;
                 return false;
             });
@@ -908,11 +899,9 @@ const firebaseConfig = {
                 return;
             }
 
-            // 取得最新使用者資料以同步指派項目
             const freshUser = state.users.find(u => u.id === currentUser.id) || currentUser;
             const assigned = freshUser.assignedCategories || (freshUser.assignedCategory ? [freshUser.assignedCategory] : []);
 
-            // 管理員或未指定特定項目的評審可評所有作品；有勾選多項目的評審只顯示該些項目
             const judgeWorks = (currentUser.role === 'admin' || assigned.length === 0)
                 ? state.works
                 : state.works.filter(w => assigned.includes(w.category));
@@ -1068,7 +1057,7 @@ const firebaseConfig = {
         };
 
         // ==========================================
-        // 視圖 6：管理員後台 (成績與作品批次刪除、帳號管理與批次刪除、項目、公告、設定)
+        // 視圖 6：管理員後台
         // ==========================================
         function renderAdminPanel(container) {
             if (!currentUser || currentUser.role !== 'admin') {
@@ -1325,13 +1314,31 @@ const firebaseConfig = {
                 `;
             }
 
-            // --- 分頁 D：最新消息管理 ---
+            // --- 分頁 D：最新消息管理 (支援多筆連結檔案) ---
             else if (currentAdminTab === 'news') {
                 tabContent = `
                     <form onsubmit="addNews(event)" class="bg-blue-50/50 p-5 rounded-xl border border-blue-200 mb-6 space-y-3">
                         <h3 class="text-base font-bold text-lib-wood">發布新公告</h3>
                         <input type="text" id="news-title" class="lib-input" required placeholder="公告標題">
                         <textarea id="news-content" rows="3" class="lib-input" required placeholder="請輸入公告內容（支援換行）"></textarea>
+                        
+                        <!-- 附件連結區 -->
+                        <div class="bg-white p-3.5 rounded-lg border border-blue-200 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-lib-wood"><i class="fa-solid fa-paperclip mr-1"></i>附加檔案／相關連結（選填，可新增多筆）</label>
+                                <button type="button" onclick="addNewsLinkRow()" class="text-xs font-bold text-lib-blue hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                                    <i class="fa-solid fa-plus mr-1"></i>新增一筆連結
+                                </button>
+                            </div>
+                            <div id="news-links-container" class="space-y-2">
+                                <div class="news-link-row grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                                    <input type="text" class="news-link-name lib-input text-xs sm:col-span-4" placeholder="連結名稱（例：競賽簡章.pdf）">
+                                    <input type="url" class="news-link-url lib-input text-xs sm:col-span-7" placeholder="檔案網址（例：https://drive.google.com/...）">
+                                    <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-xs sm:col-span-1 text-center" title="移除此列"><i class="fa-solid fa-xmark text-base"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
                         <button type="submit" class="px-5 py-2 rounded-lg bg-lib-wood text-white text-sm font-bold hover:bg-blue-800">
                             <i class="fa-solid fa-paper-plane mr-1"></i>立即發布
                         </button>
@@ -1339,10 +1346,19 @@ const firebaseConfig = {
                     <div class="space-y-3">
                         ${state.news.map(n => `
                             <div class="p-4 bg-white border rounded-xl flex justify-between items-start gap-4">
-                                <div>
+                                <div class="flex-1">
                                     <h4 class="font-bold text-slate-800">${escapeHtml(n.title)}</h4>
                                     <p class="text-xs text-slate-400 mt-0.5">${new Date(n.createdAt).toLocaleString('zh-TW')}</p>
                                     <p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${escapeHtml(n.content)}</p>
+                                    ${n.links && n.links.length > 0 ? `
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            ${n.links.map(l => `
+                                                <a href="${escapeHtml(l.url)}" target="_blank" class="inline-flex items-center text-xs font-bold text-lib-blue bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded-full transition">
+                                                    <i class="fa-solid fa-link mr-1.5"></i>${escapeHtml(l.name || '開啟附件連結')}
+                                                </a>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                                 <button onclick="deleteDocHandler('news', '${n.id}', '確定刪除此則公告？')" class="text-red-500 hover:text-red-700">
                                     <i class="fa-solid fa-trash-can"></i>
@@ -1378,7 +1394,7 @@ const firebaseConfig = {
 
             container.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
-                    <!-- 頁籤導覽列 (修復 lib-blue 樣式確保清晰可見) -->
+                    <!-- 頁籤導覽列 -->
                     <div class="flex flex-wrap border-b-2 border-lib-blue bg-slate-50 px-4 pt-3 gap-1.5">
                         ${tabs.map(t => {
                             const active = currentAdminTab === t.id;
@@ -1655,7 +1671,7 @@ const firebaseConfig = {
             showToast(isPublic ? '已設為公開展示' : '已隱藏該作品');
         };
 
-        // 新增項目、公告、網站設定
+        // 新增項目、公告(含多筆連結)、網站設定
         window.addCategory = async function(e) {
             e.preventDefault();
             const name = document.getElementById('new-cat-name').value.trim();
@@ -1665,47 +1681,7 @@ const firebaseConfig = {
             showToast('比賽項目已新增');
         };
 
-        window.addNews = async function(e) {
-            e.preventDefault();
-            const title = document.getElementById('news-title').value.trim();
-            const content = document.getElementById('news-content').value.trim();
-            await addDoc(collection(db, 'news'), { title, content, createdAt: Date.now() });
-            e.target.reset();
-            showToast('最新消息已發布');
-        };
-
-        window.saveSiteSettings = async function(e) {
-            e.preventDefault();
-            const schoolName = document.getElementById('set-school-name').value.trim();
-            const contestTitle = document.getElementById('set-contest-title').value.trim();
-            const allowSubmission = document.getElementById('set-allow-sub').checked;
-            await setDoc(doc(db, 'system', 'settings'), { schoolName, contestTitle, allowSubmission });
-            showToast('網站設定已儲存');
-        };
-
-        // 匯出成績總表 CSV
-        window.exportScoresCsv = function() {
-            const headers = ['比賽項目', '班級', '學生姓名', '平均總分', '評分人數', '得獎獎項', '作品連結'];
-            const rows = state.works.map(w => {
-                const student = state.users.find(u => u.id === w.studentId) || {};
-                const cls = w.className || student.className || '';
-                const nm = w.studentName || student.name || '';
-                const sc = state.scores.filter(s => s.workId === w.id);
-                const avg = sc.length > 0 ? (sc.reduce((a, b) => a + b.total, 0) / sc.length).toFixed(1) : '0';
-                return [w.category, cls, nm, avg, sc.length, w.award || '無', w.driveLink]
-                    .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-            });
-
-            const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${state.settings.schoolName}_${state.settings.contestTitle}_成績總表.csv`;
-            link.click();
-        };
-
-        // 啟動系統
-        initSystem();
-    </script>
-</body>
-</html>
+        window.addNewsLinkRow = function() {
+            const container = document.getElementById('news-links-container');
+            const row = document.createElement('div');
+            row.className = 'news-link-
