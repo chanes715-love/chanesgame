@@ -268,7 +268,7 @@
         // ==========================================
         // 請在此填入您的 Firebase 專案設定金鑰
         // ==========================================
-   const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyAOfAUMdUWJ1rDfkrLt-B3egRhv8kOVUc4",
   authDomain: "chanesgame.firebaseapp.com",
   projectId: "chanesgame",
@@ -1684,4 +1684,66 @@
         window.addNewsLinkRow = function() {
             const container = document.getElementById('news-links-container');
             const row = document.createElement('div');
-            row.className = 'news-link-
+            row.className = 'news-link-row grid grid-cols-1 sm:grid-cols-12 gap-2 items-center';
+            row.innerHTML = `
+                <input type="text" class="news-link-name lib-input text-xs sm:col-span-4" placeholder="連結名稱（例：評分標準表）">
+                <input type="url" class="news-link-url lib-input text-xs sm:col-span-7" placeholder="檔案網址（例：https://drive.google.com/...）">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-xs sm:col-span-1 text-center" title="移除此列"><i class="fa-solid fa-xmark text-base"></i></button>
+            `;
+            container.appendChild(row);
+        };
+
+        window.addNews = async function(e) {
+            e.preventDefault();
+            const title = document.getElementById('news-title').value.trim();
+            const content = document.getElementById('news-content').value.trim();
+            
+            const links = [];
+            document.querySelectorAll('.news-link-row').forEach(row => {
+                const name = row.querySelector('.news-link-name').value.trim();
+                const url = row.querySelector('.news-link-url').value.trim();
+                if (url) {
+                    links.push({ name: name || '下載／檢視檔案', url });
+                }
+            });
+
+            await addDoc(collection(db, 'news'), { title, content, links, createdAt: Date.now() });
+            e.target.reset();
+            showToast('最新消息已發布');
+        };
+
+        window.saveSiteSettings = async function(e) {
+            e.preventDefault();
+            const schoolName = document.getElementById('set-school-name').value.trim();
+            const contestTitle = document.getElementById('set-contest-title').value.trim();
+            const allowSubmission = document.getElementById('set-allow-sub').checked;
+            await setDoc(doc(db, 'system', 'settings'), { schoolName, contestTitle, allowSubmission });
+            showToast('網站設定已儲存');
+        };
+
+        // 匯出成績總表 CSV
+        window.exportScoresCsv = function() {
+            const headers = ['比賽項目', '班級', '學生姓名', '平均總分', '評分人數', '得獎獎項', '作品連結'];
+            const rows = state.works.map(w => {
+                const student = state.users.find(u => u.id === w.studentId) || {};
+                const cls = w.className || student.className || '';
+                const nm = w.studentName || student.name || '';
+                const sc = state.scores.filter(s => s.workId === w.id);
+                const avg = sc.length > 0 ? (sc.reduce((a, b) => a + b.total, 0) / sc.length).toFixed(1) : '0';
+                return [w.category, cls, nm, avg, sc.length, w.award || '無', w.driveLink]
+                    .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+            });
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${state.settings.schoolName}_${state.settings.contestTitle}_成績總表.csv`;
+            link.click();
+        };
+
+        // 啟動系統
+        initSystem();
+    </script>
+</body>
+</html>
