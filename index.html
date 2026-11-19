@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>長安國小資訊應用競賽</title>
+    <title>櫻花盃 國小資訊應用競賽</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Noto Serif TC (全站改用思源宋體) -->
@@ -163,7 +163,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-         const firebaseConfig = {
+       const firebaseConfig = {
   apiKey: "AIzaSyB6NgZNLvexXfKwkW5eP4tNnkSHwuY8KyM",
   authDomain: "contactbook-c6d95.firebaseapp.com",
   projectId: "contactbook-c6d95",
@@ -202,12 +202,22 @@
             const match = url.match(/(?:\/d\/|id=|folders\/)([a-zA-Z0-9_-]{15,})/);
             if (match && match[1]) {
                 return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
-            }
-            return url;
-        };
+        }
+        return url;
+    };
 
-        const state = {
-            currentPage: 'works', // 預設首頁為作品大廳
+    // SHA-256 密碼雜湊函式 (資安防護，避免明文儲存)
+    const hashPassword = async (password) => {
+        if (!password) return '';
+        if (/^[a-f0-9]{64}$/i.test(password)) return password.toLowerCase();
+        const msgBuffer = new TextEncoder().encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const state = {
+        currentPage: 'works', // 預設首頁為作品大廳
             currentUser: null, 
             authUser: null, 
             isAuthReady: false,   // 防止初始載入閃爍錯誤畫面
@@ -316,13 +326,14 @@
 
         const cleanupListeners = () => { state.unsubscribes.forEach(unsub => unsub()); state.unsubscribes = []; };
 
-        const createDefaultAdmin = async () => {
-            try {
-                await addDoc(getCollectionRef('users'), { username: 'admin', password: 'admin123', name: '系統管理員', role: 'admin', createdAt: Date.now() });
-            } catch (e) { console.error(e); }
-        };
+    const createDefaultAdmin = async () => {
+        try {
+            const hashedPassword = await hashPassword('admin123');
+            await addDoc(getCollectionRef('users'), { username: 'admin', password: hashedPassword, name: '系統管理員', role: 'admin', createdAt: Date.now() });
+        } catch (e) { console.error(e); }
+    };
 
-        const render = () => {
+    const render = () => {
             const content = document.getElementById('app-content');
             
             // 更新網站設定的標題
@@ -362,37 +373,41 @@
                 case 'home': content.innerHTML = tmplHome(); break;
                 case 'works': content.innerHTML = tmplWorks(); break;
                 case 'login': content.innerHTML = tmplLogin(); break;
-                case 'admin': content.innerHTML = state.currentUser?.role === 'admin' ? tmplAdmin() : tmplWorks(); break;
-                case 'student': content.innerHTML = state.currentUser?.role === 'student' ? tmplStudent() : tmplWorks(); break;
-                case 'judge': content.innerHTML = state.currentUser?.role === 'judge' ? tmplJudge() : tmplWorks(); break;
-                default: content.innerHTML = tmplWorks();
-            }
-        };
+            case 'admin': content.innerHTML = state.currentUser?.role === 'admin' ? tmplAdmin() : tmplWorks(); break;
+            case 'student': content.innerHTML = state.currentUser?.role === 'student' ? tmplStudent() : tmplWorks(); break;
+            case 'judge': content.innerHTML = (state.currentUser?.role === 'judge' || state.currentUser?.role === 'admin') ? tmplJudge() : tmplWorks(); break;
+            default: content.innerHTML = tmplWorks();
+        }
+    };
 
-        const renderNav = () => {
-            const menu = document.getElementById('nav-menu');
-            // 導覽順序：作品大廳 -> 最新消息
-            let html = `
-                <button onclick="navigate('works')" class="lib-btn ${state.currentPage==='works'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">作品大廳</button>
-                <button onclick="navigate('home')" class="lib-btn ${state.currentPage==='home'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">最新消息</button>
+    const renderNav = () => {
+        const menu = document.getElementById('nav-menu');
+        // 導覽順序：作品大廳 -> 最新消息
+        let html = `
+            <button onclick="navigate('works')" class="lib-btn ${state.currentPage==='works'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">作品大廳</button>
+            <button onclick="navigate('home')" class="lib-btn ${state.currentPage==='home'?'bg-lib-wood/10 text-lib-wood':'text-gray-600 hover:bg-gray-100'}">最新消息</button>
+        `;
+
+        if (!state.currentUser) {
+            html += `<button onclick="navigate('login')" class="lib-btn lib-btn-wood ml-2 shadow-sm">登入系統</button>`;
+        } else {
+            const roleLabels = { admin: '管理系統', student: '學生專區', judge: '評分專區' };
+            const rolePage = state.currentUser.role;
+
+            if (state.currentUser.role === 'admin') {
+                html += `<button onclick="navigate('judge')" class="lib-btn ${state.currentPage==='judge'?'bg-lib-purple text-white':'lib-btn-outline text-lib-purple border-lib-purple/40 hover:bg-purple-50'} ml-2 shadow-sm"><i class="fa-solid fa-glasses mr-1"></i>評分專區</button>`;
+            }
+
+            html += `
+                <button onclick="navigate('${rolePage}')" class="lib-btn lib-btn-outline ml-2 text-lib-wood border-lib-wood/30 bg-lib-wood/5 hover:bg-lib-wood/10 shadow-sm">${roleLabels[rolePage]}</button>
+                <span class="text-sm font-bold text-gray-600 hidden md:inline ml-3 px-3 py-1 bg-gray-100 rounded border border-gray-200"><i class="fa-solid fa-user text-gray-400 mr-1"></i> ${escapeHtml(state.currentUser.name)}</span>
+                <button onclick="handleLogout()" class="text-gray-400 hover:text-red-500 transition px-3 py-2 ml-1" title="登出"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
             `;
+        }
+        menu.innerHTML = html;
+    };
 
-            if (!state.currentUser) {
-                html += `<button onclick="navigate('login')" class="lib-btn lib-btn-wood ml-2 shadow-sm">登入系統</button>`;
-            } else {
-                const roleLabels = { admin: '管理系統', student: '學生專區', judge: '評分專區' };
-                const rolePage = state.currentUser.role;
-
-                html += `
-                    <button onclick="navigate('${rolePage}')" class="lib-btn lib-btn-outline ml-2 text-lib-wood border-lib-wood/30 bg-lib-wood/5 hover:bg-lib-wood/10 shadow-sm">${roleLabels[rolePage]}</button>
-                    <span class="text-sm font-bold text-gray-600 hidden md:inline ml-3 px-3 py-1 bg-gray-100 rounded border border-gray-200"><i class="fa-solid fa-user text-gray-400 mr-1"></i> ${escapeHtml(state.currentUser.name)}</span>
-                    <button onclick="handleLogout()" class="text-gray-400 hover:text-red-500 transition px-3 py-2 ml-1" title="登出"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
-                `;
-            }
-            menu.innerHTML = html;
-        };
-
-        const tmplWorks = () => {
+    const tmplWorks = () => {
             window.currentFilterCat = window.currentFilterCat || '';
             const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
             const getStudentName = (id) => {
@@ -564,67 +579,102 @@
                             <div><label class="block text-sm font-bold mb-2 text-gray-700">網站主標題</label><input type="text" id="set-title" value="${escapeHtml(state.data.settings.title)}" required class="lib-input"></div>
                             <div><label class="block text-sm font-bold mb-2 text-gray-700">網站副標題</label><input type="text" id="set-subtitle" value="${escapeHtml(state.data.settings.subtitle)}" required class="lib-input"></div>
                             <button type="submit" class="lib-btn lib-btn-blue py-2 px-6">儲存設定</button>
-                        </form>
-                    </div>
-                `;
-            } else if (window.currentAdminTab === 'users') {
-                const usersHtml = state.data.users.map(u => `
-                    <tr class="hover:bg-gray-50 transition border-b border-gray-100">
-                        <td class="p-3 font-bold text-lib-wood">${escapeHtml(u.className || '-')}</td>
-                        <td class="p-3 font-bold text-gray-800">${escapeHtml(u.name)}</td>
-                        <td class="p-3 font-bold text-gray-500">${escapeHtml(u.username)}</td>
-                        <td class="p-3">
-                            <span class="px-3 py-1 text-xs rounded font-bold text-white shadow-sm ${u.role==='admin'?'bg-lib-red':u.role==='judge'?'bg-lib-purple':'bg-lib-olive'}">${u.role === 'admin' ? '管理員' : u.role === 'judge' ? '評審' : '學生'}</span>
-                        </td>
-                        <td class="p-3">
-                            ${u.role==='judge' ? `
-                                <select onchange="updateJudgeCategory('${u.id}', this.value)" class="text-sm lib-input py-1 px-2 w-auto cursor-pointer">
-                                    <option value="">-- 全部 --</option>
-                                    ${state.data.categories.map(c => `<option value="${c.id}" ${u.assignedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
-                                </select>
-                            ` : '-'}
-                        </td>
-                        <td class="p-3 text-sm text-gray-400">${escapeHtml(u.password)}</td>
-                        <td class="p-3 text-right whitespace-nowrap">
-                            <button onclick="openEditUserModal('${u.id}')" class="text-lib-wood hover:text-blue-800 transition p-2 mr-1" title="修改帳號資料"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteDocHandler('users', '${u.id}')" class="text-gray-400 hover:text-red-500 transition p-2" ${u.username === 'admin' ? 'disabled style="opacity:0.2;cursor:not-allowed;"' : ''} title="刪除帳號"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                tabContent = `
-                    <div class="mb-8 bg-gray-50 p-5 rounded border border-gray-200">
-                        <h3 class="font-bold mb-4 text-gray-800"><i class="fa-solid fa-user-plus text-lib-wood mr-2"></i>單筆新增帳號</h3>
-                        <form onsubmit="handleAddUser(event)" class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-                            <div><label class="block text-sm mb-1 font-bold text-gray-700">班級 (學生填)</label><input type="text" id="add-u-class" class="lib-input" placeholder="例：601"></div>
-                            <div><label class="block text-sm mb-1 font-bold text-gray-700">姓名</label><input type="text" id="add-u-name" required class="lib-input"></div>
-                            <div><label class="block text-sm mb-1 font-bold text-gray-700">帳號</label><input type="text" id="add-u-username" required class="lib-input"></div>
-                            <div><label class="block text-sm mb-1 font-bold text-gray-700">密碼</label><input type="text" id="add-u-pwd" required class="lib-input"></div>
-                            <div><label class="block text-sm mb-1 font-bold text-gray-700">角色</label>
-                                <select id="add-u-role" class="lib-input cursor-pointer">
-                                    <option value="student">學生</option>
-                                    <option value="judge">評審</option>
-                                    <option value="admin">管理員</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="lib-btn lib-btn-wood py-2 h-[42px]">新增</button>
-                        </form>
-                    </div>
-                    
-                    <div class="mb-8 bg-gray-50 p-5 rounded border border-gray-200">
-                        <h3 class="font-bold mb-3 text-gray-800"><i class="fa-solid fa-file-import text-lib-blue mr-2"></i>大量匯入學生名單</h3>
-                        <p class="text-sm text-gray-500 mb-2 font-bold">格式：<code class="bg-gray-200 px-2 py-0.5 rounded text-gray-700">班級,姓名,帳號,密碼</code> (每行一筆)</p>
-                        <textarea id="bulk-students" class="lib-input h-24 mb-3 text-sm" placeholder="601,王小明,s001,pwd123..."></textarea>
-                        <button onclick="handleBulkImport()" class="lib-btn lib-btn-blue px-5 py-2 text-sm">開始匯入</button>
-                    </div>
+                    </form>
+                </div>
+            `;
+        } else if (window.currentAdminTab === 'users') {
+            window.selectedUserIds = window.selectedUserIds || [];
+            const studentUsers = state.data.users.filter(u => u.role === 'student');
+            const allStudentsChecked = studentUsers.length > 0 && studentUsers.every(u => window.selectedUserIds.includes(u.id));
 
-                    <div class="border border-gray-200 rounded bg-white overflow-x-auto">
-                        <table class="w-full text-left min-w-[700px]">
-                            <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 font-bold">班級</th><th class="p-3 font-bold">姓名</th><th class="p-3 font-bold">帳號</th><th class="p-3 font-bold">角色</th><th class="p-3 font-bold">評分指派(評審)</th><th class="p-3 font-bold">密碼</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
-                            <tbody>${usersHtml}</tbody>
-                        </table>
+            const usersHtml = state.data.users.map(u => {
+                const isChecked = window.selectedUserIds.includes(u.id);
+                const assignedList = Array.isArray(u.assignedCategoryIds)
+                    ? u.assignedCategoryIds
+                    : (u.assignedCategoryId ? [u.assignedCategoryId] : []);
+
+                return `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100 ${isChecked ? 'bg-blue-50/60' : ''}">
+                    <td class="p-3 text-center">
+                        ${u.role === 'student' ? `<input type="checkbox" onchange="toggleSelectUser('${u.id}', this.checked)" ${isChecked ? 'checked' : ''} class="w-4 h-4 cursor-pointer accent-lib-blue">` : ''}
+                    </td>
+                    <td class="p-3 font-bold text-lib-wood">${escapeHtml(u.className || '-')}</td>
+                    <td class="p-3 font-bold text-gray-800">${escapeHtml(u.name)}</td>
+                    <td class="p-3 font-bold text-gray-500">${escapeHtml(u.username)}</td>
+                    <td class="p-3">
+                        <span class="px-3 py-1 text-xs rounded font-bold text-white shadow-sm ${u.role==='admin'?'bg-lib-red':u.role==='judge'?'bg-lib-purple':'bg-lib-olive'}">${u.role === 'admin' ? '管理員' : u.role === 'judge' ? '評審' : '學生'}</span>
+                    </td>
+                    <td class="p-3">
+                        ${u.role==='judge' ? `
+                            <div class="flex flex-wrap gap-1.5 max-w-xs">
+                                ${state.data.categories.length > 0 ? state.data.categories.map(c => {
+                                    const checked = assignedList.includes(c.id);
+                                    return `
+                                    <label class="inline-flex items-center space-x-1 text-xs font-bold px-2 py-1 rounded border cursor-pointer transition ${checked ? 'bg-purple-100 border-lib-purple text-lib-purple' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}">
+                                        <input type="checkbox" onchange="toggleJudgeCategory('${u.id}', '${c.id}', this.checked)" ${checked ? 'checked' : ''} class="accent-lib-purple cursor-pointer">
+                                        <span>${escapeHtml(c.name)}</span>
+                                    </label>`;
+                                }).join('') : '<span class="text-xs text-gray-400">尚無比賽項目</span>'}
+                                <span class="w-full text-[11px] text-gray-400 font-bold">${assignedList.length === 0 ? '目前：負責全部項目' : `已指派 ${assignedList.length} 項`}</span>
+                            </div>
+                        ` : '-'}
+                    </td>
+                    <td class="p-3 text-xs text-gray-400 font-bold"><i class="fa-solid fa-shield-halved text-lib-teal mr-1"></i>SHA-256 已加密</td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <button onclick="openEditUserModal('${u.id}')" class="text-lib-wood hover:text-blue-800 transition p-2 mr-1" title="修改帳號資料"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteDocHandler('users', '${u.id}')" class="text-gray-400 hover:text-red-500 transition p-2" ${u.username === 'admin' ? 'disabled style="opacity:0.2;cursor:not-allowed;"' : ''} title="刪除帳號"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `}).join('');
+            tabContent = `
+                <div class="mb-8 bg-gray-50 p-5 rounded border border-gray-200">
+                    <h3 class="font-bold mb-4 text-gray-800"><i class="fa-solid fa-user-plus text-lib-wood mr-2"></i>單筆新增帳號</h3>
+                    <form onsubmit="handleAddUser(event)" class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                        <div><label class="block text-sm mb-1 font-bold text-gray-700">班級 (學生填)</label><input type="text" id="add-u-class" class="lib-input" placeholder="例：601"></div>
+                        <div><label class="block text-sm mb-1 font-bold text-gray-700">姓名</label><input type="text" id="add-u-name" required class="lib-input"></div>
+                        <div><label class="block text-sm mb-1 font-bold text-gray-700">帳號</label><input type="text" id="add-u-username" required class="lib-input"></div>
+                        <div><label class="block text-sm mb-1 font-bold text-gray-700">密碼 (自動雜湊加密)</label><input type="password" id="add-u-pwd" required class="lib-input"></div>
+                        <div><label class="block text-sm mb-1 font-bold text-gray-700">角色</label>
+                            <select id="add-u-role" class="lib-input cursor-pointer">
+                                <option value="student">學生</option>
+                                <option value="judge">評審</option>
+                                <option value="admin">管理員</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="lib-btn lib-btn-wood py-2 h-[42px]">新增</button>
+                    </form>
+                </div>
+                
+                <div class="mb-8 bg-gray-50 p-5 rounded border border-gray-200">
+                    <h3 class="font-bold mb-3 text-gray-800"><i class="fa-solid fa-file-import text-lib-blue mr-2"></i>大量匯入學生名單</h3>
+                    <p class="text-sm text-gray-500 mb-2 font-bold">格式：<code class="bg-gray-200 px-2 py-0.5 rounded text-gray-700">班級,姓名,帳號,密碼</code> (每行一筆，密碼將自動以 SHA-256 加密)</p>
+                    <textarea id="bulk-students" class="lib-input h-24 mb-3 text-sm" placeholder="601,王小明,s001,pwd123..."></textarea>
+                    <button onclick="handleBulkImport()" class="lib-btn lib-btn-blue px-5 py-2 text-sm">開始匯入</button>
+                </div>
+
+                <div class="mb-3 flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-3">
+                        <label class="inline-flex items-center space-x-2 text-sm font-bold text-gray-700 cursor-pointer bg-gray-100 px-3 py-1.5 rounded border border-gray-200">
+                            <input type="checkbox" onchange="toggleSelectAllStudents(this.checked)" ${allStudentsChecked ? 'checked' : ''} class="w-4 h-4 accent-lib-blue cursor-pointer">
+                            <span>全選所有學生 (${studentUsers.length} 位)</span>
+                        </label>
+                        ${window.selectedUserIds.length > 0 ? `
+                            <button onclick="handleBatchDeleteUsers()" class="lib-btn lib-btn-red px-4 py-1.5 text-sm shadow-sm">
+                                <i class="fa-solid fa-trash-can mr-1.5"></i>批次刪除選取學生 (${window.selectedUserIds.length} 筆)
+                            </button>
+                        ` : ''}
                     </div>
-                `;
-            } else if (window.currentAdminTab === 'categories') {
+                    <span class="text-xs font-bold text-gray-400"><i class="fa-solid fa-lock mr-1"></i>所有密碼皆以 SHA-256 單向雜湊安全儲存</span>
+                </div>
+
+                <div class="border border-gray-200 rounded bg-white overflow-x-auto">
+                    <table class="w-full text-left min-w-[820px]">
+                        <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 text-center w-12 font-bold">選取</th><th class="p-3 font-bold">班級</th><th class="p-3 font-bold">姓名</th><th class="p-3 font-bold">帳號</th><th class="p-3 font-bold">角色</th><th class="p-3 font-bold">評分指派(可多選，未勾選為全部)</th><th class="p-3 font-bold">密碼狀態</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
+                        <tbody>${usersHtml}</tbody>
+                    </table>
+                </div>
+            `;
+        } else if (window.currentAdminTab === 'categories') {
                 const catsHtml = state.data.categories.map(c => `
                     <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                         <td class="p-4 font-bold text-gray-800 text-lg">${escapeHtml(c.name)}</td>
@@ -699,20 +749,74 @@
                     <div class="bg-white p-2 border border-gray-200 rounded shadow-sm">${newsListHtml || '<div class="p-6 text-center text-gray-400 font-bold">目前尚無公告</div>'}</div>
                 `;
             } else if (window.currentAdminTab === 'grades') {
-                 const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
-                 const getStudentName = (id) => state.data.users.find(u => u.id === id)?.name || '未知同學';
-                 const getStudentClass = (id) => state.data.users.find(u => u.id === id)?.className || '-';
-                 
-                 const gradesHtml = state.data.works.map(w => {
-                    let totalScore = 0; let scoreCount = 0;
-                    let judgeDetails = [];
-                    if(w.scores) {
-                        Object.entries(w.scores).forEach(([jid, s]) => { 
-                            totalScore += s; scoreCount++; 
-                            const jName = state.data.users.find(u=>u.id===jid)?.name || '評審';
-                            judgeDetails.push(`${jName}:${s}`);
-                        });
-                    }
+             window.selectedWorkIds = window.selectedWorkIds || [];
+             const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
+             const getStudentName = (id) => state.data.users.find(u => u.id === id)?.name || '未知同學';
+             const getStudentClass = (id) => state.data.users.find(u => u.id === id)?.className || '-';
+             const allWorksChecked = state.data.works.length > 0 && state.data.works.every(w => window.selectedWorkIds.includes(w.id));
+             
+             const gradesHtml = state.data.works.map(w => {
+                const isChecked = window.selectedWorkIds.includes(w.id);
+                let totalScore = 0; let scoreCount = 0;
+                let judgeDetails = [];
+                if(w.scores) {
+                    Object.entries(w.scores).forEach(([jid, s]) => { 
+                        totalScore += s; scoreCount++; 
+                        const jName = state.data.users.find(u=>u.id===jid)?.name || '評審';
+                        judgeDetails.push(`${jName}:${s}`);
+                    });
+                }
+                const avgScore = scoreCount > 0 ? (totalScore / scoreCount).toFixed(1) : '0';
+                const detailTitle = judgeDetails.length > 0 ? judgeDetails.join(' | ') : '無評分';
+
+                return `
+                    <tr class="hover:bg-gray-50 transition border-b border-gray-100 ${isChecked ? 'bg-blue-50/60' : ''}">
+                        <td class="p-3 text-center">
+                            <input type="checkbox" onchange="toggleSelectWork('${w.id}', this.checked)" ${isChecked ? 'checked' : ''} class="w-4 h-4 cursor-pointer accent-lib-wood">
+                        </td>
+                        <td class="p-3 text-sm font-bold"><span class="bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">${escapeHtml(getCatName(w.categoryId))}</span></td>
+                        <td class="p-3 font-bold text-lib-wood">${escapeHtml(getStudentClass(w.studentId))}</td>
+                        <td class="p-3 font-bold text-gray-800">${escapeHtml(getStudentName(w.studentId))}</td>
+                        <td class="p-3 font-black text-lib-wood text-lg cursor-help" title="${detailTitle}">${avgScore}</td>
+                        <td class="p-3">
+                            <select onchange="updateWorkAward('${w.id}', this.value)" class="lib-input py-1 px-2 text-sm cursor-pointer w-auto">
+                                <option value="">無獎項</option>
+                                <option value="佳作" ${w.award==='佳作'?'selected':''}>佳作</option>
+                                <option value="優等" ${w.award==='優等'?'selected':''}>優等 👑</option>
+                            </select>
+                        </td>
+                        <td class="p-3 text-center">
+                            <input type="checkbox" onchange="updateWorkVisibility('${w.id}', this.checked)" ${w.isPublic ? 'checked' : ''} class="w-5 h-5 cursor-pointer accent-lib-wood">
+                        </td>
+                        <td class="p-3 text-right whitespace-nowrap">
+                            <a href="${escapeHtml(w.driveLink)}" target="_blank" class="text-lib-blue hover:text-blue-700 transition p-2" title="開啟雲端硬碟"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                            <button onclick="openEditWorkModal('${w.id}')" class="text-lib-wood hover:text-blue-800 transition p-2" title="修改學生作品資料"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteDocHandler('works', '${w.id}')" class="text-red-500 hover:text-red-700 transition p-2" title="刪除這個作品"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+             }).join('');
+
+             tabContent = `
+                <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-blue-50 p-4 rounded border border-blue-200 gap-3">
+                    <p class="text-sm font-bold text-blue-800"><i class="fa-solid fa-circle-info mr-1"></i> 設定獎項並勾選「大廳公開」後，作品才會出現在公開的作品大廳（大廳不會顯示分數）！</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${window.selectedWorkIds.length > 0 ? `
+                            <button onclick="handleBatchDeleteWorks()" class="lib-btn lib-btn-red px-4 py-2 text-sm whitespace-nowrap shadow-sm">
+                                <i class="fa-solid fa-trash-can mr-1.5"></i>批次刪除選取作品 (${window.selectedWorkIds.length} 筆)
+                            </button>
+                        ` : ''}
+                        <button onclick="exportScoresToCSV()" class="lib-btn lib-btn-wood px-5 py-2 text-sm whitespace-nowrap"><i class="fa-solid fa-file-csv mr-1"></i> 匯出成績報表</button>
+                    </div>
+                </div>
+                <div class="border border-gray-200 rounded bg-white overflow-x-auto shadow-sm">
+                    <table class="w-full text-left min-w-[850px]">
+                        <thead><tr class="bg-gray-100 text-sm text-gray-600"><th class="p-3 text-center w-12 font-bold"><input type="checkbox" onchange="toggleSelectAllWorks(this.checked)" ${allWorksChecked ? 'checked' : ''} class="w-4 h-4 cursor-pointer accent-lib-wood" title="全選/取消全選"></th><th class="p-3 font-bold">比賽項目</th><th class="p-3 font-bold">班級</th><th class="p-3 font-bold">學生</th><th class="p-3 font-bold">平均分數</th><th class="p-3 font-bold">指定獎項</th><th class="p-3 text-center font-bold">大廳公開</th><th class="p-3 text-right font-bold">操作</th></tr></thead>
+                        <tbody>${gradesHtml || '<tr><td colspan="8" class="p-8 text-center text-gray-400 font-bold">目前尚無參賽作品</td></tr>'}</tbody>
+                    </table>
+                </div>
+             `;
+        }
                     const avgScore = scoreCount > 0 ? (totalScore / scoreCount).toFixed(1) : '0';
                     const detailTitle = judgeDetails.length > 0 ? judgeDetails.join(' | ') : '無評分';
 
@@ -863,13 +967,16 @@
                         <button type="button" onclick="closeEditUserModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl transition"><i class="fa-solid fa-xmark"></i></button>
                         <h3 class="font-black text-2xl mb-4 text-gray-800 border-b pb-3 font-serif-title"><i class="fa-solid fa-user-pen mr-2 text-lib-blue"></i>修改帳號資料</h3>
                         <form onsubmit="submitEditUser(event)" class="space-y-4 text-left">
-                            <input type="hidden" id="edit-u-id">
-                            <div><label class="block font-bold mb-1 text-sm text-gray-700">班級 (學生填寫)</label><input type="text" id="edit-u-class" class="lib-input" placeholder="例：601"></div>
-                            <div><label class="block font-bold mb-1 text-sm text-gray-700">姓名</label><input type="text" id="edit-u-name" required class="lib-input"></div>
-                            <div><label class="block font-bold mb-1 text-sm text-gray-700">帳號</label><input type="text" id="edit-u-username" required class="lib-input"></div>
-                            <div><label class="block font-bold mb-1 text-sm text-gray-700">密碼</label><input type="text" id="edit-u-password" required class="lib-input"></div>
-                            <div>
-                                <label class="block font-bold mb-1 text-sm text-gray-700">角色</label>
+                        <input type="hidden" id="edit-u-id">
+                        <div><label class="block font-bold mb-1 text-sm text-gray-700">班級 (學生填寫)</label><input type="text" id="edit-u-class" class="lib-input" placeholder="例：601"></div>
+                        <div><label class="block font-bold mb-1 text-sm text-gray-700">姓名</label><input type="text" id="edit-u-name" required class="lib-input"></div>
+                        <div><label class="block font-bold mb-1 text-sm text-gray-700">帳號</label><input type="text" id="edit-u-username" required class="lib-input"></div>
+                        <div>
+                            <label class="block font-bold mb-1 text-sm text-gray-700">重設密碼 (留空則維持原密碼)</label>
+                            <input type="password" id="edit-u-password" class="lib-input" placeholder="欲更改密碼請直接輸入新密碼...">
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1 text-sm text-gray-700">角色</label>
                                 <select id="edit-u-role" class="lib-input cursor-pointer">
                                     <option value="student">學生</option>
                                     <option value="judge">評審</option>
@@ -964,21 +1071,24 @@
         };
 
         const tmplJudge = () => {
-             const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
-             const getStudentName = (id) => {
-                 const u = state.data.users.find(u => u.id === id);
-                 if (!u) return '未知同學';
-                 return u.className ? `${u.className} ${u.name}` : u.name;
-             };
-             const myId = state.currentUser.id;
-             const assignedCatId = state.currentUser.assignedCategoryId;
+         const getCatName = (id) => state.data.categories.find(c => c.id === id)?.name || '未分類';
+         const getStudentName = (id) => {
+             const u = state.data.users.find(u => u.id === id);
+             if (!u) return '未知同學';
+             return u.className ? `${u.className} ${u.name}` : u.name;
+         };
+         const myId = state.currentUser.id;
+         const isAdmin = state.currentUser.role === 'admin';
+         const assignedCatIds = Array.isArray(state.currentUser.assignedCategoryIds)
+             ? state.currentUser.assignedCategoryIds
+             : (state.currentUser.assignedCategoryId ? [state.currentUser.assignedCategoryId] : []);
 
-             let worksToJudge = state.data.works;
-             if (assignedCatId) {
-                 worksToJudge = worksToJudge.filter(w => w.categoryId === assignedCatId);
-             }
+         let worksToJudge = state.data.works;
+         if (!isAdmin && assignedCatIds.length > 0) {
+             worksToJudge = worksToJudge.filter(w => assignedCatIds.includes(w.categoryId));
+         }
 
-             const judgeWorksHtml = worksToJudge.map(w => {
+         const judgeWorksHtml = worksToJudge.map(w => {
                  const myScore = (w.scores && w.scores[myId] !== undefined) ? w.scores[myId] : '';
                  const displayTitle = `${escapeHtml(getCatName(w.categoryId))} - ${escapeHtml(getStudentName(w.studentId))}`;
                  const thumbUrl = escapeHtml(getThumbnailUrl(w.driveLink));
@@ -1008,201 +1118,256 @@
              }).join('');
 
              return `
-                <div class="max-w-6xl mx-auto">
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-8 pb-3 border-b-2 border-lib-wood">
-                        <div class="flex items-center mb-4 sm:mb-0">
-                            <i class="fa-solid fa-glasses text-lib-purple text-3xl mr-4"></i>
-                            <h2 class="text-3xl font-black text-gray-800 font-serif-title">評分專區 - ${escapeHtml(state.currentUser.name)} 老師</h2>
-                        </div>
-                        <div>
-                            ${assignedCatId ? 
-                                `<span class="border border-lib-purple text-lib-purple font-bold px-4 py-2 rounded bg-purple-50"><i class="fa-solid fa-crosshairs mr-1"></i> 指定評分項目：${escapeHtml(getCatName(assignedCatId))}</span>` : 
-                                '<span class="border border-lib-teal text-lib-teal font-bold px-4 py-2 rounded bg-teal-50"><i class="fa-solid fa-globe mr-1"></i> 負責評分：所有項目</span>'}
-                        </div>
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-8 pb-3 border-b-2 border-lib-wood">
+                    <div class="flex items-center mb-4 sm:mb-0">
+                        <i class="fa-solid fa-glasses text-lib-purple text-3xl mr-4"></i>
+                        <h2 class="text-3xl font-black text-gray-800 font-serif-title">評分專區 - ${escapeHtml(state.currentUser.name)} ${isAdmin ? '(管理員)' : '老師'}</h2>
                     </div>
-
-                    <div class="bg-white rounded shadow-sm border border-gray-200 overflow-hidden overflow-x-auto border-t-4 border-t-lib-purple">
-                        <table class="w-full text-left min-w-[750px]">
-                            <thead>
-                                <tr class="bg-gray-50 text-gray-600 border-b border-gray-200">
-                                    <th class="p-4 font-bold text-lg">作品標題</th>
-                                    <th class="p-4 font-bold text-lg">參賽學生</th>
-                                    <th class="p-4 font-bold text-lg">給予評分 (0-100)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${judgeWorksHtml || '<tr><td colspan="3" class="text-center p-12 text-gray-400 font-bold text-lg">目前還沒有作品可以評分。</td></tr>'}
-                            </tbody>
-                        </table>
+                    <div>
+                        ${isAdmin ? 
+                            '<span class="border border-lib-red text-lib-red font-bold px-4 py-2 rounded bg-blue-50"><i class="fa-solid fa-user-shield mr-1"></i> 管理員權限：可評審所有項目</span>' :
+                            (assignedCatIds.length > 0 ? 
+                            `<span class="border border-lib-purple text-lib-purple font-bold px-4 py-2 rounded bg-purple-50"><i class="fa-solid fa-crosshairs mr-1"></i> 指定評分項目：${assignedCatIds.map(id => escapeHtml(getCatName(id))).join('、')}</span>` : 
+                            '<span class="border border-lib-teal text-lib-teal font-bold px-4 py-2 rounded bg-teal-50"><i class="fa-solid fa-globe mr-1"></i> 負責評分：所有項目</span>')}
                     </div>
                 </div>
-             `;
+    window.handleLogin = async (e) => {
+        e.preventDefault();
+        const un = document.getElementById('login-username').value.trim();
+        const pw = document.getElementById('login-password').value;
+        const hashedPw = await hashPassword(pw);
+        
+        const user = state.data.users.find(u => u.username === un && (u.password === hashedPw || u.password === pw));
+        if (user) {
+            // 若舊帳號仍為明文密碼，登入成功時自動無縫升級為 SHA-256 雜湊儲存
+            if (user.password === pw && user.password !== hashedPw) {
+                try {
+                    await updateDoc(getDocRef('users', user.id), { password: hashedPw });
+                } catch (err) { console.error("Password upgrade failed:", err); }
+            }
+            state.currentUser = user;
+            showToast(`登入成功！歡迎回來，${user.name}`);
+            navigate(user.role); 
+        } else {
+            showToast('帳號或密碼錯誤，請重試！', 'error');
+        }
+    };
+
+    window.handleLogout = () => {
+        state.currentUser = null;
+        showToast('已安全登出');
+        navigate('works');
+    };
+
+    window.handleAddUser = async (e) => {
+        e.preventDefault();
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
+        const rawPwd = document.getElementById('add-u-pwd').value;
+        const hashedPassword = await hashPassword(rawPwd);
+
+        const data = {
+            className: document.getElementById('add-u-class').value.trim(),
+            name: document.getElementById('add-u-name').value.trim(),
+            username: document.getElementById('add-u-username').value.trim(),
+            password: hashedPassword,
+            role: document.getElementById('add-u-role').value,
+            createdAt: Date.now()
         };
 
-        window.switchAdminTab = (tab) => { window.currentAdminTab = tab; render(); };
+        if (state.data.users.some(u => u.username === data.username)) {
+            showToast('帳號已存在，請更換', 'error');
+            return;
+        }
+        try {
+            await addDoc(getCollectionRef('users'), data);
+            showToast('帳號新增成功（密碼已雜湊加密）！');
+            e.target.reset();
+        } catch (err) { console.error(err); showToast('新增失敗', 'error'); }
+    };
 
-        window.handleSaveSettings = async (e) => {
-            e.preventDefault();
-            if (!state.authUser || state.currentUser?.role !== 'admin') return;
-            try {
-                const title = document.getElementById('set-title').value.trim();
-                const subtitle = document.getElementById('set-subtitle').value.trim();
-                
-                if (state.data.settings.id) {
-                    await updateDoc(getDocRef('settings', state.data.settings.id), { title, subtitle });
-                } else {
-                    await addDoc(getCollectionRef('settings'), { title, subtitle });
+    window.toggleJudgeCategory = async (userId, catId, isChecked) => {
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
+        const user = state.data.users.find(u => u.id === userId);
+        if (!user) return;
+
+        let currentList = Array.isArray(user.assignedCategoryIds)
+            ? [...user.assignedCategoryIds]
+            : (user.assignedCategoryId ? [user.assignedCategoryId] : []);
+
+        if (isChecked) {
+            if (!currentList.includes(catId)) currentList.push(catId);
+        } else {
+            currentList = currentList.filter(id => id !== catId);
+        }
+
+        try {
+            await updateDoc(getDocRef('users', userId), {
+                assignedCategoryIds: currentList,
+                assignedCategoryId: null
+            });
+            showToast('評審評分項目已更新！');
+        } catch (err) { console.error(err); showToast('更新失敗', 'error'); }
+    };
+
+    /* 帳號批次勾選與刪除邏輯 */
+    window.toggleSelectUser = (userId, isChecked) => {
+        window.selectedUserIds = window.selectedUserIds || [];
+        if (isChecked) {
+            if (!window.selectedUserIds.includes(userId)) window.selectedUserIds.push(userId);
+        } else {
+            window.selectedUserIds = window.selectedUserIds.filter(id => id !== userId);
+        }
+        render();
+    };
+
+    window.toggleSelectAllStudents = (isChecked) => {
+        if (isChecked) {
+            window.selectedUserIds = state.data.users.filter(u => u.role === 'student').map(u => u.id);
+        } else {
+            window.selectedUserIds = [];
+        }
+        render();
+    };
+
+    window.handleBatchDeleteUsers = () => {
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
+        const ids = (window.selectedUserIds || []).filter(id => {
+            const u = state.data.users.find(item => item.id === id);
+            return u && u.role === 'student';
+        });
+        if (ids.length === 0) return;
+        openBatchConfirmModal('users', ids, `確定要批次刪除這 ${ids.length} 位學生帳號嗎？`);
+    };
+
+    /* 成績與作品批次勾選與刪除邏輯 */
+    window.toggleSelectWork = (workId, isChecked) => {
+        window.selectedWorkIds = window.selectedWorkIds || [];
+        if (isChecked) {
+            if (!window.selectedWorkIds.includes(workId)) window.selectedWorkIds.push(workId);
+        } else {
+            window.selectedWorkIds = window.selectedWorkIds.filter(id => id !== workId);
+        }
+        render();
+    };
+
+    window.toggleSelectAllWorks = (isChecked) => {
+        if (isChecked) {
+            window.selectedWorkIds = state.data.works.map(w => w.id);
+        } else {
+            window.selectedWorkIds = [];
+        }
+        render();
+    };
+
+    window.handleBatchDeleteWorks = () => {
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
+        const ids = [...(window.selectedWorkIds || [])];
+        if (ids.length === 0) return;
+        openBatchConfirmModal('works', ids, `確定要批次刪除這 ${ids.length} 筆學生作品與成績嗎？`);
+    };
+
+    window.handleBulkImport = async () => {
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
+        const text = document.getElementById('bulk-students').value.trim();
+        if (!text) { showToast('請輸入資料', 'error'); return; }
+        
+        const lines = text.split('\n');
+        let successCount = 0; let skipCount = 0;
+        
+        showToast('開始加密並匯入名單...');
+        for (let line of lines) {
+            const parts = line.split(',').map(s => s.trim());
+            if (parts.length >= 4) {
+                const [className, name, username, password] = parts;
+                if (name && username && password) {
+                    if (!state.data.users.some(u => u.username === username)) {
+                        try {
+                            const hashedPassword = await hashPassword(password);
+                            await addDoc(getCollectionRef('users'), { className, name, username, password: hashedPassword, role: 'student', createdAt: Date.now() });
+                            successCount++;
+                        } catch(e) { console.error(e); skipCount++; }
+                    } else { skipCount++; }
                 }
-                showToast('網站設定已儲存！');
-            } catch (err) { console.error(err); showToast('儲存失敗', 'error'); }
-        };
-
-        window.handleLogin = (e) => {
-            e.preventDefault();
-            const un = document.getElementById('login-username').value.trim();
-            const pw = document.getElementById('login-password').value;
-            
-            const user = state.data.users.find(u => u.username === un && u.password === pw);
-            if (user) {
-                state.currentUser = user;
-                showToast(`登入成功！歡迎回來，${user.name}`);
-                navigate(user.role); 
-            } else {
-                showToast('帳號或密碼錯誤，請重試！', 'error');
-            }
-        };
-
-        window.handleLogout = () => {
-            state.currentUser = null;
-            showToast('已安全登出');
-            navigate('works');
-        };
-
-        window.handleAddUser = async (e) => {
-            e.preventDefault();
-            if (!state.authUser || state.currentUser?.role !== 'admin') return;
-            const data = {
-                className: document.getElementById('add-u-class').value.trim(),
-                name: document.getElementById('add-u-name').value.trim(),
-                username: document.getElementById('add-u-username').value.trim(),
-                password: document.getElementById('add-u-pwd').value,
-                role: document.getElementById('add-u-role').value,
-                createdAt: Date.now()
-            };
-
-            if (state.data.users.some(u => u.username === data.username)) {
-                showToast('帳號已存在，請更換', 'error');
-                return;
-            }
-            try {
-                await addDoc(getCollectionRef('users'), data);
-                showToast('帳號新增成功！');
-                e.target.reset();
-            } catch (err) { console.error(err); showToast('新增失敗', 'error'); }
-        };
-
-        window.updateJudgeCategory = async (userId, catId) => {
-            if (!state.authUser || state.currentUser?.role !== 'admin') return;
-            try {
-                await updateDoc(getDocRef('users', userId), { assignedCategoryId: catId || null });
-                showToast('評審任務指派成功！');
-            } catch (err) { console.error(err); showToast('更新失敗', 'error'); }
-        };
-
-        window.handleBulkImport = async () => {
-            if (!state.authUser || state.currentUser?.role !== 'admin') return;
-            const text = document.getElementById('bulk-students').value.trim();
-            if (!text) { showToast('請輸入資料', 'error'); return; }
-            
-            const lines = text.split('\n');
-            let successCount = 0; let skipCount = 0;
-            
-            showToast('開始匯入名單...');
-            for (let line of lines) {
-                const parts = line.split(',').map(s => s.trim());
-                if (parts.length >= 4) {
-                    const [className, name, username, password] = parts;
-                    if (name && username && password) {
-                        if (!state.data.users.some(u => u.username === username)) {
-                            try {
-                                await addDoc(getCollectionRef('users'), { className, name, username, password, role: 'student', createdAt: Date.now() });
-                                successCount++;
-                            } catch(e) { console.error(e); skipCount++; }
-                        } else { skipCount++; }
-                    }
-                } else if (parts.length === 3) {
-                    const [name, username, password] = parts;
-                    if (name && username && password) {
-                        if (!state.data.users.some(u => u.username === username)) {
-                            try {
-                                await addDoc(getCollectionRef('users'), { className: '', name, username, password, role: 'student', createdAt: Date.now() });
-                                successCount++;
-                            } catch(e) { console.error(e); skipCount++; }
-                        } else { skipCount++; }
-                    }
+            } else if (parts.length === 3) {
+                const [name, username, password] = parts;
+                if (name && username && password) {
+                    if (!state.data.users.some(u => u.username === username)) {
+                        try {
+                            const hashedPassword = await hashPassword(password);
+                            await addDoc(getCollectionRef('users'), { className: '', name, username, password: hashedPassword, role: 'student', createdAt: Date.now() });
+                            successCount++;
+                        } catch(e) { console.error(e); skipCount++; }
+                    } else { skipCount++; }
                 }
             }
-            showToast(`匯入完成！成功：${successCount}筆，略過重複：${skipCount}筆`);
-            document.getElementById('bulk-students').value = '';
-        };
+        }
+        showToast(`匯入完成！成功：${successCount}筆，略過重複：${skipCount}筆`);
+        document.getElementById('bulk-students').value = '';
+    };
 
-        /* 帳號修改邏輯 */
-        window.openEditUserModal = (id) => {
-            const user = state.data.users.find(u => u.id === id);
-            if (!user) return;
-            
-            document.getElementById('edit-u-id').value = id;
-            document.getElementById('edit-u-class').value = user.className || '';
-            document.getElementById('edit-u-name').value = user.name;
-            document.getElementById('edit-u-username').value = user.username;
-            document.getElementById('edit-u-password').value = user.password;
-            document.getElementById('edit-u-role').value = user.role;
-            
-            // 保護預設 admin 帳號不被意外降級，但允許修改密碼與姓名
-            const roleSelect = document.getElementById('edit-u-role');
-            if (user.username === 'admin') {
-                roleSelect.disabled = true;
-                roleSelect.title = "系統預設管理員無法更改角色";
-            } else {
-                roleSelect.disabled = false;
-                roleSelect.title = "";
-            }
+    /* 帳號修改邏輯 */
+    window.openEditUserModal = (id) => {
+        const user = state.data.users.find(u => u.id === id);
+        if (!user) return;
+        
+        document.getElementById('edit-u-id').value = id;
+        document.getElementById('edit-u-class').value = user.className || '';
+        document.getElementById('edit-u-name').value = user.name;
+        document.getElementById('edit-u-username').value = user.username;
+        document.getElementById('edit-u-password').value = '';
+        document.getElementById('edit-u-role').value = user.role;
+        
+        // 保護預設 admin 帳號不被意外降級，但允許修改密碼與姓名
+        const roleSelect = document.getElementById('edit-u-role');
+        if (user.username === 'admin') {
+            roleSelect.disabled = true;
+            roleSelect.title = "系統預設管理員無法更改角色";
+        } else {
+            roleSelect.disabled = false;
+            roleSelect.title = "";
+        }
 
-            document.getElementById('edit-user-modal').classList.remove('hidden');
-        };
+        document.getElementById('edit-user-modal').classList.remove('hidden');
+    };
 
-        window.closeEditUserModal = () => { document.getElementById('edit-user-modal').classList.add('hidden'); };
+    window.closeEditUserModal = () => { document.getElementById('edit-user-modal').classList.add('hidden'); };
 
-        window.submitEditUser = async (e) => {
-            e.preventDefault();
-            if (!state.authUser || state.currentUser?.role !== 'admin') return;
+    window.submitEditUser = async (e) => {
+        e.preventDefault();
+        if (!state.authUser || state.currentUser?.role !== 'admin') return;
 
-            const id = document.getElementById('edit-u-id').value;
-            const className = document.getElementById('edit-u-class').value.trim();
-            const name = document.getElementById('edit-u-name').value.trim();
-            const username = document.getElementById('edit-u-username').value.trim();
-            const password = document.getElementById('edit-u-password').value;
-            let role = document.getElementById('edit-u-role').value;
+        const id = document.getElementById('edit-u-id').value;
+        const className = document.getElementById('edit-u-class').value.trim();
+        const name = document.getElementById('edit-u-name').value.trim();
+        const username = document.getElementById('edit-u-username').value.trim();
+        const newRawPassword = document.getElementById('edit-u-password').value;
+        let role = document.getElementById('edit-u-role').value;
 
-            const existingUser = state.data.users.find(u => u.id === id);
-            if (existingUser && existingUser.username === 'admin') {
-                 role = 'admin';
-            }
+        const existingUser = state.data.users.find(u => u.id === id);
+        if (existingUser && existingUser.username === 'admin') {
+             role = 'admin';
+        }
 
-            const duplicate = state.data.users.find(u => u.username === username && u.id !== id);
-            if (duplicate) {
-                showToast('這個帳號已經有人使用了，請更換', 'error');
-                return;
-            }
+        const duplicate = state.data.users.find(u => u.username === username && u.id !== id);
+        if (duplicate) {
+            showToast('這個帳號已經有人使用了，請更換', 'error');
+            return;
+        }
 
-            try {
-                await updateDoc(getDocRef('users', id), { className, name, username, password, role });
-                showToast('帳號資料修改成功！');
-                closeEditUserModal();
-            } catch (err) { console.error(err); showToast('修改失敗', 'error'); }
-        };
+        const updatePayload = { className, name, username, role };
+        if (newRawPassword.trim() !== '') {
+            updatePayload.password = await hashPassword(newRawPassword);
+        }
 
-        /* 比賽項目管理與修改邏輯 */
+        try {
+            await updateDoc(getDocRef('users', id), updatePayload);
+            showToast('帳號資料修改成功！');
+            closeEditUserModal();
+        } catch (err) { console.error(err); showToast('修改失敗', 'error'); }
+    };
+
+    /* 比賽項目管理與修改邏輯 */
         window.handleAddCategory = async (e) => {
             e.preventDefault();
             if (!state.authUser || state.currentUser?.role !== 'admin') return;
@@ -1379,21 +1544,22 @@
         };
 
         /* 評審評分邏輯 */
-        window.handleScore = async (workId) => {
-            if (!state.authUser || state.currentUser?.role !== 'judge') return;
-            const scoreNum = parseInt(document.getElementById(`score-${workId}`).value);
-            if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) { showToast('分數要是 0-100 之間的數字', 'error'); return; }
-            try {
-                const workRef = getDocRef('works', workId);
-                const work = state.data.works.find(w => w.id === workId);
-                const currentScores = work.scores || {};
-                currentScores[state.currentUser.id] = scoreNum;
-                await updateDoc(workRef, { scores: currentScores });
-                showToast('評分儲存成功！');
-            } catch (err) { console.error(err); showToast('儲存失敗', 'error'); }
-        };
+    /* 評審評分邏輯 (評審與管理員皆可評分) */
+    window.handleScore = async (workId) => {
+        if (!state.authUser || (state.currentUser?.role !== 'judge' && state.currentUser?.role !== 'admin')) return;
+        const scoreNum = parseInt(document.getElementById(`score-${workId}`).value);
+        if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) { showToast('分數要是 0-100 之間的數字', 'error'); return; }
+        try {
+            const workRef = getDocRef('works', workId);
+            const work = state.data.works.find(w => w.id === workId);
+            const currentScores = work.scores || {};
+            currentScores[state.currentUser.id] = scoreNum;
+            await updateDoc(workRef, { scores: currentScores });
+            showToast('評分儲存成功！');
+        } catch (err) { console.error(err); showToast('儲存失敗', 'error'); }
+    };
 
-        /* 管理員成績與獎項控制 */
+    /* 管理員成績與獎項控制 */
         window.updateWorkAward = async (workId, awardVal) => {
             if (!state.authUser || state.currentUser?.role !== 'admin') return;
             try {
@@ -1428,47 +1594,48 @@
                 ];
                 csvContent += row.join(",") + "\n";
             });
+    /* 自訂刪除確認視窗邏輯 (支援單筆與批次刪除) */
+    let pendingDelete = null;
 
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", "競賽成績匯出.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
+    window.deleteDocHandler = (colName, docId) => {
+        if (!state.authUser) return;
+        pendingDelete = { colName, docIds: [docId] };
+        const titleEl = document.querySelector('#confirm-modal h3');
+        if (titleEl) titleEl.innerText = '確定要刪除嗎？';
+        document.getElementById('confirm-modal').classList.remove('hidden');
+    };
 
-        window.filterWorks = (catId) => { window.currentFilterCat = catId; render(); };
+    window.openBatchConfirmModal = (colName, docIds, titleText) => {
+        if (!state.authUser) return;
+        pendingDelete = { colName, docIds };
+        const titleEl = document.querySelector('#confirm-modal h3');
+        if (titleEl) titleEl.innerText = titleText || '確定要批次刪除嗎？';
+        document.getElementById('confirm-modal').classList.remove('hidden');
+    };
 
-        /* 自訂刪除確認視窗邏輯 */
-        let pendingDelete = null;
+    window.closeConfirmModal = () => {
+        pendingDelete = null;
+        document.getElementById('confirm-modal').classList.add('hidden');
+    };
 
-        window.deleteDocHandler = (colName, docId) => {
-            if (!state.authUser) return;
-            pendingDelete = { colName, docId };
-            document.getElementById('confirm-modal').classList.remove('hidden');
-        };
-
-        window.closeConfirmModal = () => {
-            pendingDelete = null;
-            document.getElementById('confirm-modal').classList.add('hidden');
-        };
-
-        document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
-            if (!pendingDelete || !state.authUser) return;
-            const { colName, docId } = pendingDelete;
-            closeConfirmModal();
-            try {
-                await deleteDoc(getDocRef(colName, docId));
-                showToast('資料已刪除');
-            } catch (err) {
-                console.error(err);
-                showToast('刪除失敗', 'error');
+    document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
+        if (!pendingDelete || !state.authUser) return;
+        const { colName, docIds } = pendingDelete;
+        closeConfirmModal();
+        try {
+            for (const id of docIds) {
+                await deleteDoc(getDocRef(colName, id));
             }
-        });
+            if (colName === 'users') window.selectedUserIds = [];
+            if (colName === 'works') window.selectedWorkIds = [];
+            showToast(docIds.length > 1 ? `已成功批次刪除 ${docIds.length} 筆資料` : '資料已刪除');
+        } catch (err) {
+            console.error(err);
+            showToast('刪除失敗', 'error');
+        }
+    });
 
-        /* 詳細視窗 Modals */
+    /* 詳細視窗 Modals */
         window.viewWorkDetail = async (workId) => {
             const work = state.data.works.find(w => w.id === workId);
             if (!work) return;
